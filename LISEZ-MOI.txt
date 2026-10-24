@@ -1,0 +1,11 @@
+MA FERME CONNECTÉE V18 — PACK PWA
+
+Contenu : index.html, manifest.webmanifest, service-worker.js et icônes.
+
+IMPORTANT
+- Ce dossier prépare une Progressive Web App (PWA), mais ne la publie pas sur Internet.
+- Pour l’installation PWA et le service worker, hébergez tous les fichiers sur un hébergement HTTPS (par exemple votre propre hébergement). Ouvrir index.html directement depuis Fichiers ne suffit pas pour installer la PWA.
+- Les données locales du navigateur ne se synchronisent pas automatiquement entre appareils : la synchronisation Supabase reste manuelle dans cette version.
+- Avant tout test, utilisez le bouton de sauvegarde JSON dans l’application. N’utilisez pas « Envoyer les données locales vers le serveur » sans sauvegarde : cette action remplace les catégories serveur.
+- Configurez seulement l’URL du projet Supabase et la clé publique/publishable. Ne mettez jamais de clé secrète/service_role dans le navigateur.
+- Le pack n’est pas une application native App Store/Google Play; c’est la base d’une PWA installable après hébergement HTTPS et tests.
