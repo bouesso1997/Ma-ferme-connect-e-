@@ -396,6 +396,13 @@ function renderReproduction(){
   const tr=document.createElement('tr');tr.innerHTML='<td>'+esc(x.sow)+'</td><td>'+dateLabel(x.mating)+'</td><td>'+dateLabel(x.expected)+'</td><td>'+esc(status)+'</td><td>'+esc(result)+'</td><td>'+action+'</td>';rows.appendChild(tr);
  });
  const upcoming=entries.filter(x=>!x.actual).map(x=>({x,days:Math.round((new Date(x.expected+'T12:00:00')-new Date(today()+'T12:00:00'))/86400000)})).filter(o=>o.days<=14).sort((a,b)=>a.days-b.days);
+ if('Notification'in window&&Notification.permission==='granted'){
+  if(!window.mfcFarrowingNotified)window.mfcFarrowingNotified=new Set();
+  for(const item of upcoming.filter(o=>[14,7,3,0].includes(o.days))){
+   const key=item.x.id+'|'+today()+'|'+item.days;
+   if(!window.mfcFarrowingNotified.has(key)){new Notification('Ma Ferme Connectée — mise bas',{body:item.x.sow+' : date prévue '+dateLabel(item.x.expected)+(item.days===0?' (aujourd’hui).':' dans '+item.days+' jours.')});window.mfcFarrowingNotified.add(key)}
+  }
+ }
  alerts.innerHTML=upcoming.length?upcoming.map(({x,days})=>'<p><b>'+esc(x.sow)+'</b> — '+(days<0?'Date dépassée de '+Math.abs(days)+' jour(s)':days===0?'Mise bas prévue aujourd’hui': 'Mise bas prévue dans '+days+' jour(s)')+' ('+dateLabel(x.expected)+')</p>').join(''):'Aucune mise bas prévue dans les 14 prochains jours ni en retard.';
  document.getElementById('farrowingHistoryStatus').textContent=entries.length+' saillie(s) enregistrée(s).';
 }
