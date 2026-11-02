@@ -140,6 +140,7 @@ header:before{display:none!important;content:none!important}
 <button class="active" data-page="home"><span class="navico">⌂</span>Accueil</button>
 <button data-page="animals"><span class="navico">🐖</span>Animaux</button>
 <button data-page="health"><span class="navico">✚</span>Santé</button>
+<button data-page="reproduction"><span class="navico">🐷</span>Reproduction</button>
 <button data-page="feed"><span class="navico">🌾</span>Alimentation</button>
 <button data-page="stock"><span class="navico">▤</span>Stocks</button>
 <button data-page="sales"><span class="navico">🛒</span>Ventes & clients</button>
@@ -196,6 +197,21 @@ header:before{display:none!important;content:none!important}
 <section id="health" class="panel">
 <div class="card"><h2>🩺 Registre sanitaire</h2><p class="small">Enregistre les vaccinations, traitements, observations et dates de suivi. Les protocoles et doses doivent être confirmés par un vétérinaire local : cette fiche ne prescrit aucun médicament.</p><form id="healthForm"><div class="grid"><div><label for="hAnimal">Animal / lot</label><select id="hAnimal" required><option value="">Choisir un animal</option></select></div><div><label for="hDate">Date de l’intervention</label><input id="hDate" type="date" required></div><div><label for="hType">Type</label><select id="hType"><option>Vaccination</option><option>Traitement vétérinaire</option><option>Observation sanitaire</option><option>Vermifugation</option><option>Contrôle vétérinaire</option><option>Autre</option></select></div><div><label for="hProduct">Produit / intervention</label><input id="hProduct" required placeholder="Nom indiqué par le vétérinaire"></div><div><label for="hNext">Prochain suivi (facultatif)</label><input id="hNext" type="date"></div><div><label for="hWho">Responsable</label><input id="hWho" placeholder="Nom du responsable"></div></div><label for="hNotes">Notes / observations</label><textarea id="hNotes" rows="3" placeholder="Symptômes observés, consigne vétérinaire, résultat…"></textarea><button type="submit">Enregistrer dans le registre sanitaire</button></form><p id="healthStatus" class="small" aria-live="polite"></p></div>
 <div class="card"><h2>Historique sanitaire</h2><div class="table-wrap"><table><thead><tr><th>Date</th><th>Animal / lot</th><th>Type</th><th>Intervention</th><th>Prochain suivi</th><th>Notes</th><th>Action</th></tr></thead><tbody id="healthRows"></tbody></table></div><div id="healthAlerts" class="result" aria-live="polite"></div></div></section>
+<section class="panel" id="reproduction">
+<div class="page-intro"><span class="page-intro-icon">🐷</span><div><h2>Reproduction et mises bas</h2><p>Suivi des saillies, dates prévisionnelles et résultats des mises bas.</p></div></div>
+<div class="card"><h2>Enregistrer une saillie</h2><p class="small">La date prévue est estimée à 114 jours après la saillie. C’est une estimation : la date réelle peut varier.</p>
+<form id="breedingForm"><div class="grid">
+<div><label for="bSow">Truie</label><select id="bSow" required><option value="">Choisir une truie</option></select></div>
+<div><label for="bBoar">Verrat (facultatif)</label><select id="bBoar"><option value="">Non renseigné</option></select></div>
+<div><label for="bDate">Date de saillie</label><input id="bDate" type="date" required></div>
+<div><label for="bExpected">Date prévisionnelle de mise bas</label><input id="bExpected" type="date" required></div>
+</div><button type="submit">Enregistrer la saillie</button></form><p id="breedingStatus" class="small" aria-live="polite"></p></div>
+<div class="card"><h2>Alertes et calendrier des mises bas</h2><p class="small">Les rappels sont calculés à 14, 7 et 3 jours avant la date prévue, puis le jour prévu. Les alertes dans l’application apparaissent à son ouverture. Les notifications du navigateur nécessitent son autorisation et l’application ouverte ; elles ne sont pas garanties lorsque celle-ci est fermée.</p>
+<button id="enableFarrowingNotifications" class="secondary" type="button">Autoriser les notifications sur cet appareil</button>
+<div id="farrowingAlerts" class="result" aria-live="polite"></div>
+</div>
+<div class="card"><h2>Historique et suivi des mises bas</h2><div class="table-wrap"><table><thead><tr><th>Truie</th><th>Saillie</th><th>Date prévue</th><th>Statut</th><th>Résultat</th><th>Action</th></tr></thead><tbody id="farrowingRows"></tbody></table></div><p class="small" id="farrowingHistoryStatus"></p></div>
+</section>
 <section id="feed" class="panel">
 <div class="card"><h2>Comparer l’âge et le poids aux repères</h2><p class="small">Repères indicatifs à adapter à la race, à l’alimentation et aux conditions d’élevage. Ce ne sont pas des normes universelles fixes.</p><div class="grid"><div><label for="stdStage">Stade</label><select id="stdStage"><option value="postsevrage">Porcelet après sevrage</option><option value="croissance">Porc en croissance</option><option value="engraissement">Porc en engraissement</option></select></div><div><label for="stdAge">Âge (jours)</label><input id="stdAge" type="number" min="0" value="60"></div><div><label for="stdWeight">Poids mesuré (kg)</label><input id="stdWeight" type="number" min="0.1" step="0.1" value="20"></div></div><button id="compareStandard">Comparer aux repères</button><div id="standardResult" class="result" aria-live="polite"></div></div>
 <div class="card"><h2>Calculateur d’alimentation</h2><div class="grid">
@@ -270,7 +286,7 @@ header:before{display:none!important;content:none!important}
 const KEY='mfc_integrated_v1';
 const CLOUD_CFG='mfc_supabase_cfg_v13';
 let cloudSession=null;
-const blank={animals:[],stocks:[],sales:[],tasks:[],expenses:[],employees:[],health:[]};
+const blank={animals:[],stocks:[],sales:[],tasks:[],expenses:[],employees:[],health:[],farrowings:[]};
 let data=loadData(), lastFeed=null;
 function loadData(){try{return {...blank,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){return {...blank}}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){return false}}
@@ -359,7 +375,36 @@ function renderHealth(){
 }
 document.getElementById('hDate').value=today();
 document.getElementById('healthForm').addEventListener('submit',e=>{e.preventDefault();if(!Array.isArray(data.health))data.health=[];data.health.push({animal:document.getElementById('hAnimal').value,date:document.getElementById('hDate').value,type:document.getElementById('hType').value,product:document.getElementById('hProduct').value.trim(),next:document.getElementById('hNext').value,who:document.getElementById('hWho').value.trim(),notes:document.getElementById('hNotes').value.trim()});const ok=save();document.getElementById('healthStatus').textContent=ok?'Suivi sanitaire enregistré sur cet appareil. Pensez à sauvegarder puis synchroniser après vérification des droits Supabase.':'Enregistrement temporaire : stockage local indisponible.';e.target.reset();document.getElementById('hDate').value=today();renderHealth()});
-function render(){renderAnimals();renderStocks();renderSales();renderTaskAssignees();renderTasks();renderStaff();renderExpenses();renderHealth();dashboard()}
+
+function addDaysISO(date,days){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+days);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function dateLabel(value){if(!value)return '—';return new Date(value+'T12:00:00').toLocaleDateString('fr-FR')}
+function renderReproduction(){
+ const sows=document.getElementById('bSow'),boars=document.getElementById('bBoar');if(!sows||!boars)return;
+ const oldSow=sows.value,oldBoar=boars.value;
+ const eligible=data.animals.filter(a=>!['Vendu','Mort'].includes(a.status||'Présent')&&a.sex==='Femelle');
+ sows.innerHTML='<option value="">Choisir une truie</option>'+eligible.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+' — '+esc(a.cat||'')+'</option>').join('');
+ boars.innerHTML='<option value="">Non renseigné</option>'+data.animals.filter(a=>!['Vendu','Mort'].includes(a.status||'Présent')&&a.sex==='Mâle').map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+' — '+esc(a.cat||'')+'</option>').join('');
+ if(eligible.some(a=>a.id===oldSow))sows.value=oldSow;if(data.animals.some(a=>a.id===oldBoar))boars.value=oldBoar;
+ const rows=document.getElementById('farrowingRows'),alerts=document.getElementById('farrowingAlerts'),entries=Array.isArray(data.farrowings)?data.farrowings:[];
+ rows.innerHTML='';
+ if(!entries.length)rows.innerHTML='<tr><td colspan="6" class="empty">Aucune saillie enregistrée.</td></tr>';
+ entries.slice().sort((a,b)=>String(a.expected||'').localeCompare(String(b.expected||''))).forEach(x=>{
+  const days=Math.round((new Date(x.expected+'T12:00:00')-new Date(today()+'T12:00:00'))/86400000);
+  const status=x.actual?'Mise bas enregistrée':days<0?'En retard':days===0?'Prévue aujourd’hui':'Dans '+days+' jour(s)';
+  const result=x.actual?(dateLabel(x.actual)+' · '+(Number(x.live||0))+' vivant(s), '+Number(x.stillborn||0)+' mort-né(s)'):'À renseigner';
+  const action=x.actual?'Modifier le résultat':'<button type="button" data-farrow-record="'+esc(x.id)+'">Enregistrer la mise bas</button>';
+  const tr=document.createElement('tr');tr.innerHTML='<td>'+esc(x.sow)+'</td><td>'+dateLabel(x.mating)+'</td><td>'+dateLabel(x.expected)+'</td><td>'+esc(status)+'</td><td>'+esc(result)+'</td><td>'+action+'</td>';rows.appendChild(tr);
+ });
+ const upcoming=entries.filter(x=>!x.actual).map(x=>({x,days:Math.round((new Date(x.expected+'T12:00:00')-new Date(today()+'T12:00:00'))/86400000)})).filter(o=>o.days<=14).sort((a,b)=>a.days-b.days);
+ alerts.innerHTML=upcoming.length?upcoming.map(({x,days})=>'<p><b>'+esc(x.sow)+'</b> — '+(days<0?'Date dépassée de '+Math.abs(days)+' jour(s)':days===0?'Mise bas prévue aujourd’hui': 'Mise bas prévue dans '+days+' jour(s)')+' ('+dateLabel(x.expected)+')</p>').join(''):'Aucune mise bas prévue dans les 14 prochains jours ni en retard.';
+ document.getElementById('farrowingHistoryStatus').textContent=entries.length+' saillie(s) enregistrée(s).';
+}
+document.getElementById('bDate').addEventListener('change',()=>{const d=document.getElementById('bDate').value;if(d)document.getElementById('bExpected').value=addDaysISO(d,114)});
+document.getElementById('breedingForm').addEventListener('submit',e=>{e.preventDefault();const sow=document.getElementById('bSow').value,mating=document.getElementById('bDate').value,expected=document.getElementById('bExpected').value;if(!sow||!mating||!expected){document.getElementById('breedingStatus').textContent='Renseignez la truie et les deux dates.';return}if(!Array.isArray(data.farrowings))data.farrowings=[];data.farrowings.push({id:'MB-'+Date.now(),sow,boar:document.getElementById('bBoar').value,mating,expected,actual:'',live:0,stillborn:0,notes:''});const ok=save();document.getElementById('breedingStatus').textContent=ok?'Saillie enregistrée sur cet appareil.':'Stockage local indisponible : vérifiez que les données ont été conservées.';e.target.reset();document.getElementById('bExpected').value='';renderReproduction()});
+document.getElementById('enableFarrowingNotifications').addEventListener('click',async()=>{const out=document.getElementById('breedingStatus');if(!('Notification'in window)){out.textContent='Les notifications du navigateur ne sont pas prises en charge sur cet appareil.';return}const permission=await Notification.requestPermission();out.textContent=permission==='granted'?'Autorisation accordée. Les rappels pourront apparaître lorsque l’application est ouverte.':"Autorisation non accordée. Les alertes resteront visibles dans l’application.";});
+document.getElementById('farrowingRows').addEventListener('click',e=>{const b=e.target.closest('[data-farrow-record]');if(!b)return;const x=data.farrowings.find(v=>v.id===b.dataset.farrowRecord);if(!x)return;const actual=prompt('Date réelle de mise bas (AAAA-MM-JJ)',today());if(!actual)return;if(!/^\d{4}-\d{2}-\d{2}$/.test(actual)){alert('Format de date invalide.');return}const live=Number(prompt('Nombre de porcelets vivants', '0'));const stillborn=Number(prompt('Nombre de mort-nés', '0'));if(!Number.isInteger(live)||live<0||!Number.isInteger(stillborn)||stillborn<0){alert('Saisissez des nombres entiers positifs.');return}x.actual=actual;x.live=live;x.stillborn=stillborn;save();renderReproduction()});
+
+function render(){renderAnimals();renderStocks();renderSales();renderTaskAssignees();renderTasks();renderStaff();renderExpenses();renderHealth();renderReproduction();dashboard()}
 document.getElementById('dedupeAnimals').addEventListener('click',()=>{
  const list=Array.isArray(data.animals)?data.animals:[];
  const counts=new Map();
