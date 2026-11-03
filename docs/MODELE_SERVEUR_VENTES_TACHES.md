@@ -43,7 +43,7 @@ L'approbation doit être une fonction serveur transactionnelle qui vérifie le r
 
 Règles visées :
 - Administrateur et responsable : créer, attribuer et superviser les tâches.
-- Employé : lire uniquement les tâches qui lui sont attribuées et les terminer, sans changer le responsable, l'échéance ou la priorité.
+- Employé : lire uniquement les tâches qui lui sont attribuées, les terminer et joindre une note ainsi qu'une photo comme preuve de réalisation, sans changer le responsable, l'échéance ou la priorité.
 - Les autres rôles n'ont pas accès aux tâches, sauf décision métier contraire.
 
 La clôture d'une tâche doit être limitée côté serveur à l'employé assigné ou à un responsable/admin autorisé. Les champs d'affectation et de création restent protégés.
@@ -71,7 +71,7 @@ La clôture d'une tâche doit être limitée côté serveur à l'employé assign
 
 - Confirmé : le secrétariat peut corriger une vente déjà saisie tant qu'elle est `pending`. Après approbation, toute correction doit suivre une procédure réservée à l'administrateur et tracée dans l'audit.
 - Confirmé : le responsable peut consulter les ventes uniquement. Il ne peut ni en créer, ni en modifier, ni les approuver.
-- Un employé peut-il ajouter une note ou une preuve de réalisation à sa tâche ?
+- Confirmé : un employé peut ajouter une note et une photo comme preuve de réalisation de sa tâche.
 - Les tâches du secrétariat sont-elles nécessaires dans le planning ?
 - Qui peut consulter les justificatifs de paiement ?
 
