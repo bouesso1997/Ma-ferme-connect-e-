@@ -42,7 +42,8 @@ L'approbation doit être une fonction serveur transactionnelle qui vérifie le r
 - `completed_by`, `completed_at`.
 
 Règles visées :
-- Administrateur et responsable : créer, attribuer et superviser les tâches.
+- Administrateur et responsable : créer, attribuer et superviser les tâches, y compris celles du secrétariat.
+- Secrétariat : consulter son planning, lire les tâches qui lui sont attribuées, les terminer et ajouter une note ou une photo de réalisation. Il ne peut pas réattribuer les tâches ni modifier les paramètres définis par le responsable ou l'administrateur.
 - Employé : lire uniquement les tâches qui lui sont attribuées, les terminer et joindre une note ainsi qu'une photo comme preuve de réalisation, sans changer le responsable, l'échéance ou la priorité.
 - Les autres rôles n'ont pas accès aux tâches, sauf décision métier contraire.
 
@@ -72,7 +73,7 @@ La clôture d'une tâche doit être limitée côté serveur à l'employé assign
 - Confirmé : le secrétariat peut corriger une vente déjà saisie tant qu'elle est `pending`. Après approbation, toute correction doit suivre une procédure réservée à l'administrateur et tracée dans l'audit.
 - Confirmé : le responsable peut consulter les ventes uniquement. Il ne peut ni en créer, ni en modifier, ni les approuver.
 - Confirmé : un employé peut ajouter une note et une photo comme preuve de réalisation de sa tâche.
-- Les tâches du secrétariat sont-elles nécessaires dans le planning ?
+- Confirmé : le secrétariat doit disposer de son propre planning et pouvoir suivre les tâches qui lui sont attribuées.
 - Qui peut consulter les justificatifs de paiement ?
 
 Aucune réponse ne doit être déduite automatiquement des anciens profils d'exemple.
