@@ -24,9 +24,9 @@ Les tableaux complets enregistrés dans `farm_records.payload` ne permettent pas
 - `approved_by`, `approved_at` : identité et date définies exclusivement par l'action serveur d'approbation.
 
 Règles visées :
-- Secrétariat : créer, consulter et corriger une vente tant qu'elle est `pending` (non validée). Il ne peut jamais modifier le statut d'approbation ni corriger une vente après validation.
-- Responsable : consulter les ventes uniquement ; il ne peut ni créer, ni modifier, ni approuver une vente.
-- Administrateur : consulter, corriger selon procédure auditée et approuver.
+- Secrétariat : créer, consulter et corriger une vente tant qu'elle est `pending` (non validée). Il ne peut jamais modifier le statut d'approbation ni corriger une vente après validation. Il ne peut pas consulter les justificatifs de paiement.
+- Responsable : consulter les ventes uniquement ; il ne peut ni créer, ni modifier, ni approuver une vente. Il ne peut pas consulter les justificatifs de paiement.
+- Administrateur : consulter, corriger selon procédure auditée, approuver et consulter les justificatifs de paiement.
 - Employé : aucun accès aux ventes.
 
 L'approbation doit être une fonction serveur transactionnelle qui vérifie le rôle admin, la ferme, le statut courant `pending`, puis écrit `approved`, `approved_by` et `approved_at`. Un client ne doit jamais pouvoir envoyer directement ces trois champs.
@@ -74,6 +74,6 @@ La clôture d'une tâche doit être limitée côté serveur à l'employé assign
 - Confirmé : le responsable peut consulter les ventes uniquement. Il ne peut ni en créer, ni en modifier, ni les approuver.
 - Confirmé : un employé peut ajouter une note et une photo comme preuve de réalisation de sa tâche.
 - Confirmé : le secrétariat doit disposer de son propre planning et pouvoir suivre les tâches qui lui sont attribuées.
-- Qui peut consulter les justificatifs de paiement ?
+- Confirmé : seuls les administrateurs peuvent consulter les justificatifs de paiement. Le secrétariat et le responsable ne peuvent pas les ouvrir.
 
 Aucune réponse ne doit être déduite automatiquement des anciens profils d'exemple.
