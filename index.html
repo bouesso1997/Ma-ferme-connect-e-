@@ -142,6 +142,7 @@ header:before{display:none!important;content:none!important}
 <button data-page="health"><span class="navico">✚</span>Santé</button>
 <button data-page="reproduction"><span class="navico">🐷</span>Reproduction</button>
 <button data-page="feed"><span class="navico">🌾</span>Alimentation</button>
+<button data-page="nutrition"><span class="navico">📊</span>Nutrition & performances</button>
 <button data-page="stock"><span class="navico">▤</span>Stocks</button>
 <button data-page="sales"><span class="navico">🛒</span>Ventes & clients</button>
 <button data-page="expenses"><span class="navico">📈</span>Finances</button>
@@ -274,6 +275,38 @@ header:before{display:none!important;content:none!important}
     <article class="automation-card"><span class="automation-symbol">🔔</span><div><h3>Alertes de gestion</h3><p>Les alertes de stocks, tâches et suivi sanitaire sont consultables dans l’application. Les notifications en arrière-plan sur téléphone restent à configurer.</p><span class="status-pill status-ready">Alertes dans l’application</span></div><button class="secondary" data-goto="stock">Consulter les stocks</button></article>
   </div>
 </section>
+
+<section class="panel" id="nutrition">
+ <div class="page-intro"><span class="page-intro-icon">📊</span><div><h2>Nutrition, croissance et performance</h2><p>Suivi de l’indice de consommation et calcul des lots de fabrication alimentaire.</p></div></div>
+ <div class="notice"><b>Important :</b> les résultats sont des calculs indicatifs à partir des données saisies. Ils ne constituent pas une ration validée. Faites vérifier les valeurs nutritionnelles et les limites d’incorporation par un nutritionniste porcin, avec analyses des matières premières.</div>
+ <div class="card"><h2>1. Suivi de croissance et indice de consommation</h2>
+  <form id="nutritionPerfForm"><div class="grid">
+   <div><label for="npAnimal">Identifiant animal / lot</label><input id="npAnimal" required placeholder="P-0001 ou LOT-01"></div>
+   <div><label for="npStart">Date de début</label><input id="npStart" type="date" required></div>
+   <div><label for="npEnd">Date de fin</label><input id="npEnd" type="date" required></div>
+   <div><label for="npWeightStart">Poids initial (kg)</label><input id="npWeightStart" type="number" min="0" step=".01" required></div>
+   <div><label for="npWeightEnd">Poids final (kg)</label><input id="npWeightEnd" type="number" min="0" step=".01" required></div>
+   <div><label for="npFeed">Aliment réellement consommé (kg)</label><input id="npFeed" type="number" min="0" step=".01" required></div>
+   <div><label for="npFeedCost">Coût de l’aliment (FCFA/kg, facultatif)</label><input id="npFeedCost" type="number" min="0" step=".01" value="0"></div>
+  </div><button type="submit">Calculer et enregistrer</button></form>
+  <div id="npResult" class="result" aria-live="polite">Renseignez les pesées et la consommation pour calculer les indicateurs.</div>
+  <h3>Historique des performances</h3><div class="table-wrap"><table><thead><tr><th>Animal / lot</th><th>Période</th><th>Gain</th><th>Gain/jour</th><th>Aliment</th><th>IC</th><th>Coût/kg gagné</th></tr></thead><tbody id="npRows"><tr><td colspan="7" class="empty">Aucune mesure enregistrée.</td></tr></tbody></table></div>
+ </div>
+ <div class="card"><h2>2. Formulation et calcul des intrants</h2>
+  <p class="small">Saisissez les pourcentages de votre formule et les données nutritionnelles indiquées sur les analyses ou fiches fournisseurs. Le calculateur vérifie que la somme fait 100 % et estime le coût et les apports pondérés.</p>
+  <div class="grid">
+   <div><label for="nfBatch">Taille du lot à fabriquer (kg)</label><input id="nfBatch" type="number" min="1" step=".1" value="1000"></div>
+   <div><label for="nfName">Nom de la formule</label><input id="nfName" placeholder="Ex. Croissance - formule A"></div>
+   <div><label for="nfStage">Stade ciblé</label><select id="nfStage"><option>Post-sevrage</option><option>Croissance</option><option>Finition</option><option>Truie gestante</option><option>Truie allaitante</option><option>Verrat</option></select></div>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>Intrant</th><th>% formule</th><th>Prix FCFA/kg</th><th>Protéines %</th><th>Énergie kcal/kg</th><th>Quantité (kg)</th></tr></thead><tbody id="nfRows"></tbody></table></div>
+  <button id="nfCalculate" type="button">Calculer la formule</button><button id="nfSave" class="secondary" type="button">Enregistrer la formule</button>
+  <div id="nfResult" class="result" aria-live="polite">Complétez les pourcentages et les valeurs réelles des matières premières.</div>
+  <h3>Formules enregistrées</h3><div id="nfSaved" class="small empty">Aucune formule enregistrée.</div>
+ </div>
+ <p class="small">Les historiques de ce module sont actuellement conservés sur cet appareil uniquement. Ils ne sont pas encore synchronisés avec Supabase.</p>
+</section>
+
 <section class="panel" id="settings">
   <div class="page-intro"><span class="page-intro-icon">⚙</span><div><h2>Paramètres</h2><p>Configuration de la ferme, synchronisation et sauvegardes.</p></div></div>
   <div class="settings-intro"><b>Connexion et données</b><p>La connexion Supabase et les commandes de synchronisation sont regroupées ici pour alléger l’écran d’accueil. L’envoi général reste désactivé afin de protéger les données pendant les tests.</p></div>
@@ -509,5 +542,41 @@ document.getElementById('healthPull').addEventListener('click',async()=>{if(!clo
 document.getElementById('cloudPush').addEventListener('click',()=>{cloudStatus('Envoi général désactivé par sécurité : l’ancienne méthode supprimait les lignes serveur avant de les recréer. Aucune donnée n’a été envoyée ni supprimée. Nous réactiverons une synchronisation générale après avoir conçu et testé une méthode sans suppression préalable.');});
 
 render();calcFeed();
+
+/* Module Nutrition & performances — stockage local indépendant, sans écriture Supabase */
+const MFC_NUTRITION_KEY='mfc_nutrition_v1';
+let nutritionData=(()=>{try{return JSON.parse(localStorage.getItem(MFC_NUTRITION_KEY)||'{"performance":[],"formulas":[]}')}catch(e){return {performance:[],formulas:[]}}})();
+function saveNutrition(){try{localStorage.setItem(MFC_NUTRITION_KEY,JSON.stringify(nutritionData));return true}catch(e){return false}}
+const nfIngredients=['Maïs','Tourteau de soja','Son de blé','Farine de poisson','Huile végétale','Calcaire','Phosphate','Prémix','Autre intrant'];
+function initNutrition(){
+ const body=document.getElementById('nfRows'); if(!body||body.dataset.ready)return; body.dataset.ready='1';
+ body.innerHTML=nfIngredients.map((n,i)=>'<tr><td>'+n+'</td><td><input aria-label="Pourcentage '+n+'" class="nf-pct" type="number" min="0" max="100" step=".01" value="0"></td><td><input aria-label="Prix '+n+'" class="nf-price" type="number" min="0" step=".01" value="0"></td><td><input aria-label="Protéines '+n+'" class="nf-protein" type="number" min="0" max="100" step=".01" value="0"></td><td><input aria-label="Énergie '+n+'" class="nf-energy" type="number" min="0" step="1" value="0"></td><td class="nf-qty">0</td></tr>').join('');
+ document.getElementById('npStart').value=today();document.getElementById('npEnd').value=today();
+ renderNutritionHistory();renderFormulaHistory();
+}
+function calculateFormula(){
+ const batch=Number(document.getElementById('nfBatch').value),rows=[...document.querySelectorAll('#nfRows tr')];
+ if(!(batch>0)){document.getElementById('nfResult').textContent='Indiquez une taille de lot supérieure à zéro.';return null}
+ let total=0,cost=0,protein=0,energy=0;
+ rows.forEach(tr=>{const p=Number(tr.querySelector('.nf-pct').value)||0,price=Number(tr.querySelector('.nf-price').value)||0,pr=Number(tr.querySelector('.nf-protein').value)||0,en=Number(tr.querySelector('.nf-energy').value)||0;const q=batch*p/100;tr.querySelector('.nf-qty').textContent=q.toFixed(2);total+=p;cost+=q*price;protein+=p*pr/100;energy+=p*en/100});
+ const out={batch,total,cost,protein,energy,costKg:cost/batch,ingredients:rows.map((tr,i)=>({name:nfIngredients[i],pct:Number(tr.querySelector('.nf-pct').value)||0,price:Number(tr.querySelector('.nf-price').value)||0,protein:Number(tr.querySelector('.nf-protein').value)||0,energy:Number(tr.querySelector('.nf-energy').value)||0,qty:batch*(Number(tr.querySelector('.nf-pct').value)||0)/100}))};
+ document.getElementById('nfResult').innerHTML='<b>Somme des incorporations : '+total.toFixed(2)+' %</b><br>Poids théorique : '+(batch*total/100).toFixed(2)+' kg / '+batch.toFixed(2)+' kg demandés<br>Coût estimé du lot : '+cost.toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA<br>Coût estimé : '+out.costKg.toLocaleString('fr-FR',{maximumFractionDigits:2})+' FCFA/kg<br>Protéines brutes estimées : '+protein.toFixed(2)+' %<br>Énergie estimée : '+energy.toFixed(0)+' kcal/kg<br><b>'+(Math.abs(total-100)<0.01?'Somme à 100 % : vérification arithmétique réussie.':'Attention : la formule doit totaliser 100 % avant fabrication.')+'</b>';
+ return out;
+}
+document.getElementById('nutritionPerfForm').addEventListener('submit',e=>{
+ e.preventDefault();const start=document.getElementById('npStart').value,end=document.getElementById('npEnd').value,w1=Number(document.getElementById('npWeightStart').value),w2=Number(document.getElementById('npWeightEnd').value),feed=Number(document.getElementById('npFeed').value),price=Number(document.getElementById('npFeedCost').value)||0;
+ const days=Math.round((new Date(end+'T12:00:00')-new Date(start+'T12:00:00'))/86400000),gain=w2-w1;
+ if(days<=0||gain<=0||feed<0){document.getElementById('npResult').textContent='Vérifiez les dates : la période doit être positive et le poids final supérieur au poids initial.';return}
+ const item={id:Date.now(),animal:document.getElementById('npAnimal').value.trim(),start,end,days,w1,w2,gain,feed,daily:gain/days,fcr:feed/gain,costKg:price?feed*price/gain:null};
+ nutritionData.performance.unshift(item);const saved=saveNutrition();
+ document.getElementById('npResult').innerHTML='<b>Gain total :</b> '+gain.toFixed(2)+' kg<br><b>Gain moyen quotidien :</b> '+item.daily.toFixed(3)+' kg/jour ('+(item.daily*1000).toFixed(0)+' g/jour)<br><b>Indice de consommation :</b> '+item.fcr.toFixed(2)+' kg aliment/kg gain'+(item.costKg!==null?'<br><b>Coût alimentaire/kg gagné :</b> '+item.costKg.toFixed(0)+' FCFA':'')+'<br><span class="small">'+(saved?'Mesure enregistrée sur cet appareil.':'Calcul effectué, mais stockage local indisponible.')+'</span>';
+ renderNutritionHistory();
+});
+function renderNutritionHistory(){const el=document.getElementById('npRows');if(!el)return;el.innerHTML=nutritionData.performance.length?nutritionData.performance.map(x=>'<tr><td>'+esc(x.animal)+'</td><td>'+esc(x.start)+' → '+esc(x.end)+' ('+x.days+' j)</td><td>'+x.gain.toFixed(2)+' kg</td><td>'+(x.daily*1000).toFixed(0)+' g/j</td><td>'+x.feed.toFixed(2)+' kg</td><td><b>'+x.fcr.toFixed(2)+'</b></td><td>'+(x.costKg===null?'—':x.costKg.toFixed(0)+' FCFA')+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">Aucune mesure enregistrée.</td></tr>'}
+document.getElementById('nfCalculate').addEventListener('click',calculateFormula);
+document.getElementById('nfSave').addEventListener('click',()=>{const f=calculateFormula();if(!f)return;if(Math.abs(f.total-100)>=0.01){alert('La formule doit totaliser 100 % avant son enregistrement.');return}nutritionData.formulas.unshift({id:Date.now(),name:document.getElementById('nfName').value.trim()||'Formule sans nom',stage:document.getElementById('nfStage').value,...f});const ok=saveNutrition();renderFormulaHistory();document.getElementById('nfResult').innerHTML+='<br><b>'+(ok?'Formule enregistrée sur cet appareil.':'Stockage indisponible : formule non enregistrée.')+'</b>'});
+function renderFormulaHistory(){const el=document.getElementById('nfSaved');if(!el)return;el.classList.toggle('empty',!nutritionData.formulas.length);el.innerHTML=nutritionData.formulas.length?nutritionData.formulas.map(x=>'<p><b>'+esc(x.name)+'</b> · '+esc(x.stage)+' · '+x.batch+' kg · '+x.costKg.toFixed(0)+' FCFA/kg · Protéines estimées '+x.protein.toFixed(2)+' %</p>').join(''):'Aucune formule enregistrée.'}
+document.querySelector('button[data-page="nutrition"]').addEventListener('click',initNutrition);
+
 </script>
 </body></html>
