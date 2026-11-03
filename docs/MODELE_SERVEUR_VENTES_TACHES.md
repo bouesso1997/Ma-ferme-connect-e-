@@ -24,7 +24,7 @@ Les tableaux complets enregistrés dans `farm_records.payload` ne permettent pas
 - `approved_by`, `approved_at` : identité et date définies exclusivement par l'action serveur d'approbation.
 
 Règles visées :
-- Secrétariat : créer et consulter les ventes autorisées, sans modifier le statut d'approbation.
+- Secrétariat : créer, consulter et corriger une vente tant qu'elle est `pending` (non validée). Il ne peut jamais modifier le statut d'approbation ni corriger une vente après validation.
 - Responsable : consulter les ventes, sans approbation finale.
 - Administrateur : consulter, corriger selon procédure auditée et approuver.
 - Employé : aucun accès aux ventes.
@@ -69,7 +69,7 @@ La clôture d'une tâche doit être limitée côté serveur à l'employé assign
 
 ## Décisions métier à confirmer avant SQL
 
-- Le secrétariat peut-il corriger une vente déjà saisie tant qu'elle est `pending` ?
+- Confirmé : le secrétariat peut corriger une vente déjà saisie tant qu'elle est `pending`. Après approbation, toute correction doit suivre une procédure réservée à l'administrateur et tracée dans l'audit.
 - Le responsable peut-il créer une vente ou seulement la consulter ?
 - Un employé peut-il ajouter une note ou une preuve de réalisation à sa tâche ?
 - Les tâches du secrétariat sont-elles nécessaires dans le planning ?
