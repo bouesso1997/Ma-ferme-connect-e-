@@ -465,10 +465,21 @@ CREATE POLICY farm_private_proofs_bucket_read
 ON storage.buckets FOR SELECT TO authenticated
 USING (id = 'farm-private-proofs');
 
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('farm-private-proofs', 'farm-private-proofs', false)
+-- Justificatifs : PDF ou images ; photos de tâches : images.
+-- Limite maximale : 10 Mio par fichier.
+INSERT INTO storage.buckets
+  (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'farm-private-proofs',
+  'farm-private-proofs',
+  false,
+  10485760,
+  ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp']::text[]
+)
 ON CONFLICT (id) DO UPDATE
-SET public = false;
+SET public = false,
+    file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
 
 CREATE OR REPLACE FUNCTION public.can_access_task_proof(p_farm_id uuid, p_task_id uuid)
 RETURNS boolean
@@ -561,7 +572,136 @@ WITH CHECK (
     WHEN (storage.foldername(name))[2] = 'sales' THEN
       CASE
         WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
+          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+          ((storage.foldername(name))[1])::uuid,
+          ARRAY['admin']::text[]
+        )
+        AND public.can_access_sale_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
+        ELSE false
+      END
+    WHEN (storage.foldername(name))[2] = 'tasks' THEN
+      CASE
+        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
           AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN public.can_access_task_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
+        ELSE false
+      END
+    ELSE false
+  END
+);
+
+-- Pas de modification/suppression directe des fichiers, même pour l'admin.
+-- Ces actions resteront bloquées tant qu'un workflow serveur audité n'aura pas
+-- été conçu et testé. La simple politique RLS ne suffit pas à journaliser
+-- correctement les changements de métadonnées et les suppressions Storage.
+DROP POLICY IF EXISTS farm_proofs_admin_update ON storage.objects;
+DROP POLICY IF EXISTS farm_proofs_admin_delete ON storage.objects;
+
+COMMIT;
+
+-- Convention de chemin obligatoire dans le bucket privé :
+-- <farm_id>/sales/<sale_id>/<nom_fichier>
+-- <farm_id>/tasks/<task_id>/<nom_fichier>
+--
+-- TESTS AVANT TOUTE MISE EN SERVICE :
+-- 1. Admin : lecture ventes, approbation, correction auditée, accès justificatifs.
+-- 2. Secrétariat : créer/voir vente pending, impossible d'approuver ou modifier après approbation.
+-- 3. Responsable : lecture ventes et justificatifs uniquement.
+-- 4. Employé : aucune lecture ventes ; lecture et clôture de ses seules tâches.
+-- 5. Secrétariat : lecture et clôture de ses tâches attribuées.
+-- 6. Aucun membre ne peut modifier l'affectation, l'échéance ou la priorité d'une tâche via le client.
+-- 7. Un utilisateur d'une autre ferme ou désactivé est refusé.
+-- 8. Vérifier les privilèges Storage après REVOKE/GRANT et les politiques RLS de public.farms.
+-- 9. Vérifier les contraintes métier et la syntaxe dans un projet de test avant production.
+-- 10. Vérifier qu'un chemin de justificatif sales correspond à une vente existante de la ferme.
+-- 11. Vérifier qu'une photo de tâche ne peut être associée qu'à la tâche qui l'a reçue.
+--
+-- Corrections de revue intégrées le 2026-11-04 :
+-- - Délimiteur dollar de secretariat_update_pending_sale corrigé.
+-- - Privilèges anon retirés de storage.objects et storage.buckets.
+-- - authenticated limité à SELECT/INSERT sur objects et SELECT sur buckets.
+-- - Lecture et dépôt des justificatifs de vente vérifient le format UUID
+--   du farm_id et du sale_id avant conversion.
+-- - Bucket privé limité à 10 Mio et aux PDF/JPEG/PNG/WebP ; paramètres
+--   également appliqués en cas de bucket existant.
+-- - complete_farm_task vérifie le préfixe farm_id/tasks/task_id et l'existence
+--   de l'objet dans le bucket privé avant d'enregistrer le chemin.
+--
+-- Ce brouillon nécessite encore une revue complète et des tests isolés avant
+-- exécution : politiques de public.farms, formats de chemins côté application,
+-- permissions effectives Supabase Storage et tests multi-rôles/multi-fermes.
+
+          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+          ((storage.foldername(name))[1])::uuid,
+          ARRAY['admin']::text[]
+        )
+        AND public.can_access_sale_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
+        ELSE false
+      END
+    WHEN (storage.foldername(name))[2] = 'tasks' THEN
+      CASE
+        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
+          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN public.can_access_task_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
+        ELSE false
+      END
+    ELSE false
+  END
+);
+
+-- Pas de modification/suppression directe des fichiers, même pour l'admin.
+-- Ces actions resteront bloquées tant qu'un workflow serveur audité n'aura pas
+-- été conçu et testé. La simple politique RLS ne suffit pas à journaliser
+-- correctement les changements de métadonnées et les suppressions Storage.
+DROP POLICY IF EXISTS farm_proofs_admin_update ON storage.objects;
+DROP POLICY IF EXISTS farm_proofs_admin_delete ON storage.objects;
+
+COMMIT;
+
+-- Convention de chemin obligatoire dans le bucket privé :
+-- <farm_id>/sales/<sale_id>/<nom_fichier>
+-- <farm_id>/tasks/<task_id>/<nom_fichier>
+--
+-- TESTS AVANT TOUTE MISE EN SERVICE :
+-- 1. Admin : lecture ventes, approbation, correction auditée, accès justificatifs.
+-- 2. Secrétariat : créer/voir vente pending, impossible d'approuver ou modifier après approbation.
+-- 3. Responsable : lecture ventes et justificatifs uniquement.
+-- 4. Employé : aucune lecture ventes ; lecture et clôture de ses seules tâches.
+-- 5. Secrétariat : lecture et clôture de ses tâches attribuées.
+-- 6. Aucun membre ne peut modifier l'affectation, l'échéance ou la priorité d'une tâche via le client.
+-- 7. Un utilisateur d'une autre ferme ou désactivé est refusé.
+-- 8. Vérifier les privilèges Storage après REVOKE/GRANT et les politiques RLS de public.farms.
+-- 9. Vérifier les contraintes métier et la syntaxe dans un projet de test avant production.
+-- 10. Vérifier qu'un chemin de justificatif sales correspond à une vente existante de la ferme.
+-- 11. Vérifier qu'une photo de tâche ne peut être associée qu'à la tâche qui l'a reçue.
+--
+-- Corrections de revue intégrées le 2026-11-04 :
+-- - Délimiteur dollar de secretariat_update_pending_sale corrigé.
+-- - Privilèges anon retirés de storage.objects et storage.buckets.
+-- - authenticated limité à SELECT/INSERT sur objects et SELECT sur buckets.
+-- - Lecture des justificatifs de vente vérifie maintenant l'existence de la vente
+--   et la correspondance farm_id/sale_id.
+-- - complete_farm_task vérifie le préfixe farm_id/tasks/task_id et l'existence
+--   de l'objet dans le bucket privé avant d'enregistrer le chemin.
+--
+-- Ce brouillon nécessite encore une revue complète et des tests isolés avant
+-- exécution : politiques de public.farms, formats de chemins côté application,
+-- permissions effectives Supabase Storage et tests multi-rôles/multi-fermes.
+
         THEN public.has_farm_role(
           ((storage.foldername(name))[1])::uuid,
           ARRAY['admin']::text[]
