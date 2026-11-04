@@ -31,12 +31,10 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-  REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-  REVOKE ALL ON SEQUENCES FROM PUBLIC, anon, authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+-- Le compte SQL actuel est postgres et n'est pas membre de supabase_admin.
+-- Ne pas tenter de modifier les privilèges par défaut de ce rôle depuis cette migration.
+-- Les schémas gérés par Supabase (storage, graphql, realtime, extensions) ne sont
+-- pas modifiés ici : leurs privilèges par défaut relèvent de la plateforme.
 
 -- A1. Restreindre les droits directs sur les fermes existantes.
 -- La lecture et la mise à jour restent filtrées par les politiques RLS en place.
