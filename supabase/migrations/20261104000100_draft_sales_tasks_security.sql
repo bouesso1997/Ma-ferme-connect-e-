@@ -214,7 +214,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
   v_farm_id uuid;
   v_status text;
@@ -247,7 +247,7 @@ BEGIN
       updated_at = now()
   WHERE id = p_sale_id;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.admin_correct_farm_sale(
   p_sale_id uuid,
