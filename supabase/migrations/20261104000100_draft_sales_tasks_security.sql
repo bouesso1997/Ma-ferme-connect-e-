@@ -22,19 +22,9 @@
 
 BEGIN;
 
--- A0. Réduire les privilèges par défaut des futurs objets du schéma public.
--- Chaque table/fonction/sequence devra ensuite recevoir des GRANT explicites.
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE ALL ON SEQUENCES FROM PUBLIC, anon, authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
-
--- Le compte SQL actuel est postgres et n'est pas membre de supabase_admin.
--- Ne pas tenter de modifier les privilèges par défaut de ce rôle depuis cette migration.
--- Les schémas gérés par Supabase (storage, graphql, realtime, extensions) ne sont
--- pas modifiés ici : leurs privilèges par défaut relèvent de la plateforme.
+-- A0. Aucun privilège par défaut global n'est modifié.
+-- Les droits des nouvelles tables et fonctions sont attribués explicitement
+-- ci-dessous afin de ne pas perturber d'autres objets du schéma public.
 
 -- A1. Restreindre les droits directs sur les fermes existantes.
 -- La lecture et la mise à jour restent filtrées par les politiques RLS en place.
@@ -446,17 +436,11 @@ AFTER INSERT OR UPDATE OR DELETE ON public.farm_tasks
 FOR EACH ROW EXECUTE FUNCTION public.write_farm_audit_event();
 
 -- G. Stockage privé pour justificatifs et photos de tâches.
--- Réduire les privilèges SQL directs : RLS reste la couche de filtrage par ferme.
--- Les utilisateurs anonymes n'ont aucun accès aux métadonnées Storage.
-REVOKE ALL PRIVILEGES ON TABLE storage.objects FROM PUBLIC, anon;
-REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-ON TABLE storage.objects FROM authenticated;
-GRANT SELECT, INSERT ON TABLE storage.objects TO authenticated;
-
-REVOKE ALL PRIVILEGES ON TABLE storage.buckets FROM PUBLIC, anon;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-ON TABLE storage.buckets FROM authenticated;
-GRANT SELECT ON TABLE storage.buckets TO authenticated;
+-- Les tables Storage sont gérées par Supabase : leurs privilèges SQL ne sont pas
+-- modifiés par cette migration. RLS est activé sur buckets et objects ; en
+-- l'absence de politique pour anon, l'accès anonyme reste refusé. Les politiques
+-- ci-dessous n'accordent aux utilisateurs authentifiés que la lecture du bucket
+-- dédié et la lecture/dépose des objets correspondant à leurs droits métier.
 
 -- Rendre visible uniquement la fiche du bucket privé nécessaire à l'application.
 -- Cela ne rend pas les fichiers publics : storage.objects garde ses propres politiques.
@@ -620,15 +604,14 @@ COMMIT;
 -- 5. Secrétariat : lecture et clôture de ses tâches attribuées.
 -- 6. Aucun membre ne peut modifier l'affectation, l'échéance ou la priorité d'une tâche via le client.
 -- 7. Un utilisateur d'une autre ferme ou désactivé est refusé.
--- 8. Vérifier les privilèges Storage après REVOKE/GRANT et les politiques RLS de public.farms.
+-- 8. Vérifier les politiques RLS Storage et les politiques RLS de public.farms.
 -- 9. Vérifier les contraintes métier et la syntaxe dans un projet de test avant production.
 -- 10. Vérifier qu'un chemin de justificatif sales correspond à une vente existante de la ferme.
 -- 11. Vérifier qu'une photo de tâche ne peut être associée qu'à la tâche qui l'a reçue.
 --
 -- Corrections de revue intégrées le 2026-11-04 :
 -- - Délimiteur dollar de secretariat_update_pending_sale corrigé.
--- - Privilèges anon retirés de storage.objects et storage.buckets.
--- - authenticated limité à SELECT/INSERT sur objects et SELECT sur buckets.
+-- - Les privilèges SQL des tables Storage laissés sous gestion Supabase ; accès filtré par RLS.
 -- - Lecture et dépôt des justificatifs de vente vérifient le format UUID
 --   du farm_id et du sale_id avant conversion.
 -- - Bucket privé limité à 10 Mio et aux PDF/JPEG/PNG/WebP ; paramètres
@@ -638,132 +621,4 @@ COMMIT;
 --
 -- Ce brouillon nécessite encore une revue complète et des tests isolés avant
 -- exécution : politiques de public.farms, formats de chemins côté application,
--- permissions effectives Supabase Storage et tests multi-rôles/multi-fermes.
-
-          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-          ((storage.foldername(name))[1])::uuid,
-          ARRAY['admin']::text[]
-        )
-        AND public.can_access_sale_proof(
-          ((storage.foldername(name))[1])::uuid,
-          ((storage.foldername(name))[3])::uuid
-        )
-        ELSE false
-      END
-    WHEN (storage.foldername(name))[2] = 'tasks' THEN
-      CASE
-        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
-          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        THEN public.can_access_task_proof(
-          ((storage.foldername(name))[1])::uuid,
-          ((storage.foldername(name))[3])::uuid
-        )
-        ELSE false
-      END
-    ELSE false
-  END
-);
-
--- Pas de modification/suppression directe des fichiers, même pour l'admin.
--- Ces actions resteront bloquées tant qu'un workflow serveur audité n'aura pas
--- été conçu et testé. La simple politique RLS ne suffit pas à journaliser
--- correctement les changements de métadonnées et les suppressions Storage.
-DROP POLICY IF EXISTS farm_proofs_admin_update ON storage.objects;
-DROP POLICY IF EXISTS farm_proofs_admin_delete ON storage.objects;
-
-COMMIT;
-
--- Convention de chemin obligatoire dans le bucket privé :
--- <farm_id>/sales/<sale_id>/<nom_fichier>
--- <farm_id>/tasks/<task_id>/<nom_fichier>
---
--- TESTS AVANT TOUTE MISE EN SERVICE :
--- 1. Admin : lecture ventes, approbation, correction auditée, accès justificatifs.
--- 2. Secrétariat : créer/voir vente pending, impossible d'approuver ou modifier après approbation.
--- 3. Responsable : lecture ventes et justificatifs uniquement.
--- 4. Employé : aucune lecture ventes ; lecture et clôture de ses seules tâches.
--- 5. Secrétariat : lecture et clôture de ses tâches attribuées.
--- 6. Aucun membre ne peut modifier l'affectation, l'échéance ou la priorité d'une tâche via le client.
--- 7. Un utilisateur d'une autre ferme ou désactivé est refusé.
--- 8. Vérifier les privilèges Storage après REVOKE/GRANT et les politiques RLS de public.farms.
--- 9. Vérifier les contraintes métier et la syntaxe dans un projet de test avant production.
--- 10. Vérifier qu'un chemin de justificatif sales correspond à une vente existante de la ferme.
--- 11. Vérifier qu'une photo de tâche ne peut être associée qu'à la tâche qui l'a reçue.
---
--- Corrections de revue intégrées le 2026-11-04 :
--- - Délimiteur dollar de secretariat_update_pending_sale corrigé.
--- - Privilèges anon retirés de storage.objects et storage.buckets.
--- - authenticated limité à SELECT/INSERT sur objects et SELECT sur buckets.
--- - Lecture des justificatifs de vente vérifie maintenant l'existence de la vente
---   et la correspondance farm_id/sale_id.
--- - complete_farm_task vérifie le préfixe farm_id/tasks/task_id et l'existence
---   de l'objet dans le bucket privé avant d'enregistrer le chemin.
---
--- Ce brouillon nécessite encore une revue complète et des tests isolés avant
--- exécution : politiques de public.farms, formats de chemins côté application,
--- permissions effectives Supabase Storage et tests multi-rôles/multi-fermes.
-
-        THEN public.has_farm_role(
-          ((storage.foldername(name))[1])::uuid,
-          ARRAY['admin']::text[]
-        )
-        AND public.can_access_sale_proof(
-          ((storage.foldername(name))[1])::uuid,
-          ((storage.foldername(name))[3])::uuid
-        )
-        ELSE false
-      END
-    WHEN (storage.foldername(name))[2] = 'tasks' THEN
-      CASE
-        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
-          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        THEN public.can_access_task_proof(
-          ((storage.foldername(name))[1])::uuid,
-          ((storage.foldername(name))[3])::uuid
-        )
-        ELSE false
-      END
-    ELSE false
-  END
-);
-
--- Pas de modification/suppression directe des fichiers, même pour l'admin.
--- Ces actions resteront bloquées tant qu'un workflow serveur audité n'aura pas
--- été conçu et testé. La simple politique RLS ne suffit pas à journaliser
--- correctement les changements de métadonnées et les suppressions Storage.
-DROP POLICY IF EXISTS farm_proofs_admin_update ON storage.objects;
-DROP POLICY IF EXISTS farm_proofs_admin_delete ON storage.objects;
-
-COMMIT;
-
--- Convention de chemin obligatoire dans le bucket privé :
--- <farm_id>/sales/<sale_id>/<nom_fichier>
--- <farm_id>/tasks/<task_id>/<nom_fichier>
---
--- TESTS AVANT TOUTE MISE EN SERVICE :
--- 1. Admin : lecture ventes, approbation, correction auditée, accès justificatifs.
--- 2. Secrétariat : créer/voir vente pending, impossible d'approuver ou modifier après approbation.
--- 3. Responsable : lecture ventes et justificatifs uniquement.
--- 4. Employé : aucune lecture ventes ; lecture et clôture de ses seules tâches.
--- 5. Secrétariat : lecture et clôture de ses tâches attribuées.
--- 6. Aucun membre ne peut modifier l'affectation, l'échéance ou la priorité d'une tâche via le client.
--- 7. Un utilisateur d'une autre ferme ou désactivé est refusé.
--- 8. Vérifier les privilèges Storage après REVOKE/GRANT et les politiques RLS de public.farms.
--- 9. Vérifier les contraintes métier et la syntaxe dans un projet de test avant production.
--- 10. Vérifier qu'un chemin de justificatif sales correspond à une vente existante de la ferme.
--- 11. Vérifier qu'une photo de tâche ne peut être associée qu'à la tâche qui l'a reçue.
---
--- Corrections de revue intégrées le 2026-11-04 :
--- - Délimiteur dollar de secretariat_update_pending_sale corrigé.
--- - Privilèges anon retirés de storage.objects et storage.buckets.
--- - authenticated limité à SELECT/INSERT sur objects et SELECT sur buckets.
--- - Lecture des justificatifs de vente vérifie maintenant l'existence de la vente
---   et la correspondance farm_id/sale_id.
--- - complete_farm_task vérifie le préfixe farm_id/tasks/task_id et l'existence
---   de l'objet dans le bucket privé avant d'enregistrer le chemin.
---
--- Ce brouillon nécessite encore une revue complète et des tests isolés avant
--- exécution : politiques de public.farms, formats de chemins côté application,
--- permissions effectives Supabase Storage et tests multi-rôles/multi-fermes.
+-- politiques RLS Storage, politiques de public.farms et tests multi-rôles/multi-fermes.
