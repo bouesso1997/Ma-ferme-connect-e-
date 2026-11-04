@@ -473,7 +473,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.farm_sales s
@@ -484,7 +484,7 @@ AS $
         ARRAY['admin','manager','secretariat']::text[]
       )
   );
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.can_access_sale_proof(uuid,uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.can_access_sale_proof(uuid,uuid) TO authenticated;
