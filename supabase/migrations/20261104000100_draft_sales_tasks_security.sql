@@ -467,7 +467,8 @@ USING (id = 'farm-private-proofs');
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('farm-private-proofs', 'farm-private-proofs', false)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE
+SET public = false;
 
 CREATE OR REPLACE FUNCTION public.can_access_task_proof(p_farm_id uuid, p_task_id uuid)
 RETURNS boolean
