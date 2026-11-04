@@ -433,7 +433,7 @@ BEGIN
     RETURN NEW;
   END IF;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.write_farm_audit_event() FROM PUBLIC, anon, authenticated;
 
