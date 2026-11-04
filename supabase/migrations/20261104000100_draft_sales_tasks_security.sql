@@ -22,7 +22,30 @@
 
 BEGIN;
 
--- A. Restreindre l'exécution des fonctions de contrôle existantes.
+-- A0. Réduire les privilèges par défaut des futurs objets du schéma public.
+-- Chaque table/fonction/sequence devra ensuite recevoir des GRANT explicites.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON SEQUENCES FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+  REVOKE ALL ON TABLES FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+  REVOKE ALL ON SEQUENCES FROM PUBLIC, anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+
+-- A1. Restreindre les droits directs sur les fermes existantes.
+-- La lecture et la mise à jour restent filtrées par les politiques RLS en place.
+REVOKE ALL PRIVILEGES ON TABLE public.farms FROM PUBLIC, anon;
+REVOKE INSERT, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON TABLE public.farms FROM authenticated;
+GRANT SELECT, UPDATE ON TABLE public.farms TO authenticated;
+
+-- A2. Restreindre l'exécution des fonctions de contrôle existantes.
 REVOKE EXECUTE ON FUNCTION public.has_farm_role(uuid, text[]) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.is_farm_admin(uuid) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.is_farm_member(uuid) FROM PUBLIC, anon;
@@ -410,7 +433,9 @@ BEGIN
     RETURN NEW;
   END IF;
 END;
-$$;
+$;
+
+REVOKE ALL ON FUNCTION public.write_farm_audit_event() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS farm_sales_audit_trigger ON public.farm_sales;
 CREATE TRIGGER farm_sales_audit_trigger
