@@ -454,34 +454,12 @@ WITH CHECK (
   END
 );
 
+-- Pas de modification/suppression directe des fichiers, même pour l'admin.
+-- Ces actions resteront bloquées tant qu'un workflow serveur audité n'aura pas
+-- été conçu et testé. La simple politique RLS ne suffit pas à journaliser
+-- correctement les changements de métadonnées et les suppressions Storage.
 DROP POLICY IF EXISTS farm_proofs_admin_update ON storage.objects;
-CREATE POLICY farm_proofs_admin_update
-ON storage.objects FOR UPDATE TO authenticated
-USING (
-  bucket_id = 'farm-private-proofs'
-  AND public.has_farm_role(
-    ((storage.foldername(name))[1])::uuid,
-    ARRAY['admin']::text[]
-  )
-)
-WITH CHECK (
-  bucket_id = 'farm-private-proofs'
-  AND public.has_farm_role(
-    ((storage.foldername(name))[1])::uuid,
-    ARRAY['admin']::text[]
-  )
-);
-
 DROP POLICY IF EXISTS farm_proofs_admin_delete ON storage.objects;
-CREATE POLICY farm_proofs_admin_delete
-ON storage.objects FOR DELETE TO authenticated
-USING (
-  bucket_id = 'farm-private-proofs'
-  AND public.has_farm_role(
-    ((storage.foldername(name))[1])::uuid,
-    ARRAY['admin']::text[]
-  )
-);
 
 COMMIT;
 
