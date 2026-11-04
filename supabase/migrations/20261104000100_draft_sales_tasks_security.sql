@@ -154,7 +154,9 @@ WITH CHECK (
   )
 );
 
--- E. Fonctions serveur : approbation, correction admin auditée, clôture de tâche.
+-- E. Fonctions serveur : approbation, correction admin auditée,
+-- modification secrétariat avant approbation, clôture de tâche.
+
 CREATE OR REPLACE FUNCTION public.approve_farm_sale(p_sale_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -188,6 +190,55 @@ BEGIN
   WHERE id = p_sale_id;
 END;
 $$;
+
+
+CREATE OR REPLACE FUNCTION public.secretariat_update_pending_sale(
+  p_sale_id uuid,
+  p_animal_label text,
+  p_sale_date date,
+  p_buyer text,
+  p_weight_kg numeric,
+  p_amount numeric,
+  p_payment_reference text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+DECLARE
+  v_farm_id uuid;
+  v_status text;
+BEGIN
+  SELECT s.farm_id, s.status INTO v_farm_id, v_status
+  FROM public.farm_sales s
+  WHERE s.id = p_sale_id
+  FOR UPDATE;
+
+  IF v_farm_id IS NULL THEN
+    RAISE EXCEPTION 'Vente introuvable';
+  END IF;
+  IF NOT public.has_farm_role(v_farm_id, ARRAY['secretariat']::text[]) THEN
+    RAISE EXCEPTION 'Action réservée au secrétariat';
+  END IF;
+  IF v_status <> 'pending' THEN
+    RAISE EXCEPTION 'Une vente approuvée ne peut plus être modifiée par le secrétariat';
+  END IF;
+  IF p_weight_kg IS NULL OR p_weight_kg <= 0 OR p_amount IS NULL OR p_amount < 0 THEN
+    RAISE EXCEPTION 'Poids ou montant invalide';
+  END IF;
+
+  UPDATE public.farm_sales
+  SET animal_label = p_animal_label,
+      sale_date = p_sale_date,
+      buyer = p_buyer,
+      weight_kg = p_weight_kg,
+      amount = p_amount,
+      payment_reference = p_payment_reference,
+      updated_at = now()
+  WHERE id = p_sale_id;
+END;
+$;
 
 CREATE OR REPLACE FUNCTION public.admin_correct_farm_sale(
   p_sale_id uuid,
@@ -279,6 +330,8 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.approve_farm_sale(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.secretariat_update_pending_sale(uuid,text,date,text,numeric,numeric,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.secretariat_update_pending_sale(uuid,text,date,text,numeric,numeric,text) TO authenticated;
 REVOKE ALL ON FUNCTION public.admin_correct_farm_sale(uuid,text,date,text,numeric,numeric,text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.complete_farm_task(uuid,text,text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.approve_farm_sale(uuid) TO authenticated;
