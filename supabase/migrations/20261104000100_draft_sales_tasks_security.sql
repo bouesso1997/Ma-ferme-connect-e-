@@ -137,7 +137,13 @@ CREATE POLICY farm_tasks_read_assigned_or_supervisor
 ON public.farm_tasks FOR SELECT TO authenticated
 USING (
   public.has_farm_role(farm_id, ARRAY['admin','manager']::text[])
-  OR assigned_to = auth.uid()
+  OR (
+    assigned_to = auth.uid()
+    AND public.has_farm_role(
+      farm_id,
+      ARRAY['admin','manager','secretariat','employee']::text[]
+    )
+  )
 );
 
 DROP POLICY IF EXISTS farm_tasks_supervisor_insert ON public.farm_tasks;
@@ -146,6 +152,9 @@ ON public.farm_tasks FOR INSERT TO authenticated
 WITH CHECK (
   public.has_farm_role(farm_id, ARRAY['admin','manager']::text[])
   AND created_by = auth.uid()
+  AND status = 'todo'
+  AND completed_by IS NULL
+  AND completed_at IS NULL
   AND EXISTS (
     SELECT 1 FROM public.farm_members m
     WHERE m.farm_id = farm_tasks.farm_id
@@ -309,8 +318,14 @@ BEGIN
     RAISE EXCEPTION 'Tâche introuvable';
   END IF;
   IF NOT (
-    v_assigned_to = auth.uid()
-    OR public.has_farm_role(v_farm_id, ARRAY['admin','manager']::text[])
+    public.has_farm_role(v_farm_id, ARRAY['admin','manager']::text[])
+    OR (
+      v_assigned_to = auth.uid()
+      AND public.has_farm_role(
+        v_farm_id,
+        ARRAY['admin','manager','secretariat','employee']::text[]
+      )
+    )
   ) THEN
     RAISE EXCEPTION 'Tâche non attribuée à cet utilisateur';
   END IF;
@@ -405,8 +420,14 @@ AS $$
     WHERE t.id = p_task_id
       AND t.farm_id = p_farm_id
       AND (
-        t.assigned_to = auth.uid()
-        OR public.has_farm_role(p_farm_id, ARRAY['admin','manager']::text[])
+        public.has_farm_role(p_farm_id, ARRAY['admin','manager']::text[])
+        OR (
+          t.assigned_to = auth.uid()
+          AND public.has_farm_role(
+            p_farm_id,
+            ARRAY['admin','manager','secretariat','employee']::text[]
+          )
+        )
       )
   );
 $$;
