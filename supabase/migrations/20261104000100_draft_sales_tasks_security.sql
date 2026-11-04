@@ -572,7 +572,9 @@ WITH CHECK (
     WHEN (storage.foldername(name))[2] = 'sales' THEN
       CASE
         WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
-          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN public.has_farm_role(
           ((storage.foldername(name))[1])::uuid,
           ARRAY['admin']::text[]
         )
