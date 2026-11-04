@@ -69,3 +69,31 @@ Ne jamais partager un même compte entre plusieurs employés. Ne jamais stocker 
 ## État
 
 Aucune migration SQL n'a été exécutée. Aucune donnée Supabase n'a été modifiée. Ce plan doit être suivi d'une inspection en lecture seule du schéma Supabase avant toute proposition de SQL.
+
+
+## Complément du diagnostic Supabase (4 novembre 2026)
+
+Résultats communiqués depuis le SQL Editor :
+
+- RLS activé et non forcé sur `farms`, `farm_members` et `farm_records`.
+- `farm_sales`, `farm_tasks` et `audit_events` n'existent pas encore.
+- Aucun bucket n'a été retourné par `storage.buckets`.
+- Aucune politique n'a été retournée pour `storage.objects`.
+- `has_farm_role(uuid,text[])` est exécutable par `anon` ; `is_farm_admin(uuid)` et `is_farm_member(uuid)` ne le sont pas.
+- Les politiques actuelles de `farm_records` autorisent des accès par catégorie et ne suffisent pas pour appliquer les droits fins par vente ou par tâche.
+- Les fonctions de contrôle existantes sont SECURITY DEFINER avec `search_path` vide.
+
+## Brouillon SQL préparé
+
+Fichier : `supabase/migrations/20261104000100_draft_sales_tasks_security.sql`.
+
+Il contient une proposition additive pour les tables métier, l'audit, les fonctions contrôlées et un bucket privé. Une fonction dédiée a été ajoutée pour permettre au secrétariat de modifier une vente uniquement tant qu'elle est en attente.
+
+**Ce fichier reste un brouillon non exécuté.** Il nécessite une revue technique avant toute exécution, notamment :
+- vérifier les privilèges et politiques existants de `storage.objects` et de `public.farms` ;
+- valider la convention des chemins de fichiers privés ;
+- compléter les tests d'autorisation négatifs et vérifier la cohérence des fonctions SECURITY DEFINER ;
+- confirmer la procédure d'ajout et de révocation des comptes Auth individuels ;
+- tester sur un projet de test avec des comptes fictifs et une sauvegarde vérifiée.
+
+Aucune donnée Supabase n'a été modifiée. Aucune fusion ni publication n'a été effectuée.
