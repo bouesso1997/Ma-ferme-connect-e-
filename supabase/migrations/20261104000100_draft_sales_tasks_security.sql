@@ -560,6 +560,10 @@ WITH CHECK (
           ((storage.foldername(name))[1])::uuid,
           ARRAY['admin']::text[]
         )
+        AND public.can_access_sale_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
         ELSE false
       END
     WHEN (storage.foldername(name))[2] = 'tasks' THEN
