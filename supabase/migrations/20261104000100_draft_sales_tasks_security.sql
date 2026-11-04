@@ -333,6 +333,26 @@ BEGIN
     RAISE EXCEPTION 'Cette tâche est déjà terminée';
   END IF;
 
+  -- Le chemin est relatif au bucket privé et doit appartenir à cette tâche.
+  -- La photo doit déjà exister dans storage.objects avant la clôture.
+  IF p_completion_photo_path IS NOT NULL THEN
+    IF split_part(p_completion_photo_path, '/', 1) <> v_farm_id::text
+       OR split_part(p_completion_photo_path, '/', 2) <> 'tasks'
+       OR split_part(p_completion_photo_path, '/', 3) <> p_task_id::text
+       OR split_part(p_completion_photo_path, '/', 4) = '' THEN
+      RAISE EXCEPTION 'Le chemin de la photo ne correspond pas à cette tâche';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM storage.objects o
+      WHERE o.bucket_id = 'farm-private-proofs'
+        AND o.name = p_completion_photo_path
+    ) THEN
+      RAISE EXCEPTION 'La photo de preuve est introuvable dans le stockage privé';
+    END IF;
+  END IF;
+
   UPDATE public.farm_tasks
   SET status = 'done',
       completed_by = auth.uid(),
@@ -403,6 +423,18 @@ AFTER INSERT OR UPDATE OR DELETE ON public.farm_tasks
 FOR EACH ROW EXECUTE FUNCTION public.write_farm_audit_event();
 
 -- G. Stockage privé pour justificatifs et photos de tâches.
+-- Réduire les privilèges SQL directs : RLS reste la couche de filtrage par ferme.
+-- Les utilisateurs anonymes n'ont aucun accès aux métadonnées Storage.
+REVOKE ALL PRIVILEGES ON TABLE storage.objects FROM PUBLIC, anon;
+REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+ON TABLE storage.objects FROM authenticated;
+GRANT SELECT, INSERT ON TABLE storage.objects TO authenticated;
+
+REVOKE ALL PRIVILEGES ON TABLE storage.buckets FROM PUBLIC, anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+ON TABLE storage.buckets FROM authenticated;
+GRANT SELECT ON TABLE storage.buckets TO authenticated;
+
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('farm-private-proofs', 'farm-private-proofs', false)
 ON CONFLICT (id) DO NOTHING;
@@ -435,6 +467,28 @@ $$;
 REVOKE ALL ON FUNCTION public.can_access_task_proof(uuid,uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.can_access_task_proof(uuid,uuid) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.can_access_sale_proof(p_farm_id uuid, p_sale_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.farm_sales s
+    WHERE s.id = p_sale_id
+      AND s.farm_id = p_farm_id
+      AND public.has_farm_role(
+        p_farm_id,
+        ARRAY['admin','manager','secretariat']::text[]
+      )
+  );
+$;
+
+REVOKE ALL ON FUNCTION public.can_access_sale_proof(uuid,uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.can_access_sale_proof(uuid,uuid) TO authenticated;
+
 DROP POLICY IF EXISTS farm_proofs_read ON storage.objects;
 CREATE POLICY farm_proofs_read
 ON storage.objects FOR SELECT TO authenticated
@@ -442,9 +496,9 @@ USING (
   bucket_id = 'farm-private-proofs'
   AND CASE
     WHEN (storage.foldername(name))[2] = 'sales'
-      THEN public.has_farm_role(
+      THEN public.can_access_sale_proof(
         ((storage.foldername(name))[1])::uuid,
-        ARRAY['admin','manager','secretariat']::text[]
+        ((storage.foldername(name))[3])::uuid
       )
     WHEN (storage.foldername(name))[2] = 'tasks'
       THEN public.can_access_task_proof(
@@ -496,9 +550,20 @@ COMMIT;
 -- 5. Secrétariat : lecture et clôture de ses tâches attribuées.
 -- 6. Aucun membre ne peut modifier l'affectation, l'échéance ou la priorité d'une tâche via le client.
 -- 7. Un utilisateur d'une autre ferme ou désactivé est refusé.
--- 8. Vérifier les privilèges sur storage.objects et les politiques RLS de public.farms.
+-- 8. Vérifier les privilèges Storage après REVOKE/GRANT et les politiques RLS de public.farms.
 -- 9. Vérifier les contraintes métier et la syntaxe dans un projet de test avant production.
+-- 10. Vérifier qu'un chemin de justificatif sales correspond à une vente existante de la ferme.
+-- 11. Vérifier qu'une photo de tâche ne peut être associée qu'à la tâche qui l'a reçue.
 --
--- Ce brouillon nécessite une revue avant exécution : en particulier, confirmer les
--- politiques de public.farms, les rôles exacts, le format des chemins Storage,
--- les droits de stockage par défaut et les besoins de correction/suppression.
+-- Corrections de revue intégrées le 2026-11-04 :
+-- - Délimiteur dollar de secretariat_update_pending_sale corrigé.
+-- - Privilèges anon retirés de storage.objects et storage.buckets.
+-- - authenticated limité à SELECT/INSERT sur objects et SELECT sur buckets.
+-- - Lecture des justificatifs de vente vérifie maintenant l'existence de la vente
+--   et la correspondance farm_id/sale_id.
+-- - complete_farm_task vérifie le préfixe farm_id/tasks/task_id et l'existence
+--   de l'objet dans le bucket privé avant d'enregistrer le chemin.
+--
+-- Ce brouillon nécessite encore une revue complète et des tests isolés avant
+-- exécution : politiques de public.farms, formats de chemins côté application,
+-- permissions effectives Supabase Storage et tests multi-rôles/multi-fermes.
