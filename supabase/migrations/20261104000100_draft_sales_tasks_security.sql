@@ -458,6 +458,13 @@ REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
 ON TABLE storage.buckets FROM authenticated;
 GRANT SELECT ON TABLE storage.buckets TO authenticated;
 
+-- Rendre visible uniquement la fiche du bucket privé nécessaire à l'application.
+-- Cela ne rend pas les fichiers publics : storage.objects garde ses propres politiques.
+DROP POLICY IF EXISTS farm_private_proofs_bucket_read ON storage.buckets;
+CREATE POLICY farm_private_proofs_bucket_read
+ON storage.buckets FOR SELECT TO authenticated
+USING (id = 'farm-private-proofs');
+
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('farm-private-proofs', 'farm-private-proofs', false)
 ON CONFLICT (id) DO NOTHING;
