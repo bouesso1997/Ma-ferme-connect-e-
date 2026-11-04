@@ -495,16 +495,28 @@ ON storage.objects FOR SELECT TO authenticated
 USING (
   bucket_id = 'farm-private-proofs'
   AND CASE
-    WHEN (storage.foldername(name))[2] = 'sales'
-      THEN public.can_access_sale_proof(
-        ((storage.foldername(name))[1])::uuid,
-        ((storage.foldername(name))[3])::uuid
-      )
-    WHEN (storage.foldername(name))[2] = 'tasks'
-      THEN public.can_access_task_proof(
-        ((storage.foldername(name))[1])::uuid,
-        ((storage.foldername(name))[3])::uuid
-      )
+    WHEN (storage.foldername(name))[2] = 'sales' THEN
+      CASE
+        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
+          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN public.can_access_sale_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
+        ELSE false
+      END
+    WHEN (storage.foldername(name))[2] = 'tasks' THEN
+      CASE
+        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
+          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN public.can_access_task_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
+        ELSE false
+      END
     ELSE false
   END
 );
@@ -515,16 +527,27 @@ ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
   bucket_id = 'farm-private-proofs'
   AND CASE
-    WHEN (storage.foldername(name))[2] = 'sales'
-      THEN public.has_farm_role(
-        ((storage.foldername(name))[1])::uuid,
-        ARRAY['admin']::text[]
-      )
-    WHEN (storage.foldername(name))[2] = 'tasks'
-      THEN public.can_access_task_proof(
-        ((storage.foldername(name))[1])::uuid,
-        ((storage.foldername(name))[3])::uuid
-      )
+    WHEN (storage.foldername(name))[2] = 'sales' THEN
+      CASE
+        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
+          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN public.has_farm_role(
+          ((storage.foldername(name))[1])::uuid,
+          ARRAY['admin']::text[]
+        )
+        ELSE false
+      END
+    WHEN (storage.foldername(name))[2] = 'tasks' THEN
+      CASE
+        WHEN COALESCE(array_length(storage.foldername(name), 1), 0) = 3
+          AND (storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          AND (storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN public.can_access_task_proof(
+          ((storage.foldername(name))[1])::uuid,
+          ((storage.foldername(name))[3])::uuid
+        )
+        ELSE false
+      END
     ELSE false
   END
 );
