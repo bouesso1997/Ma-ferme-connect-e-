@@ -170,6 +170,13 @@ header:before{display:none!important;content:none!important}
   <div class="metric finance-metric"><span>Marge indicative</span><strong id="mMargin">—</strong></div>
 </div>
 <p class="small finance-note" id="profitNote">Le résultat ne tient compte que des ventes et dépenses enregistrées et ne représente pas nécessairement le bénéfice comptable complet.</p>
+<div class="metrics finance-metrics" aria-label="Détail des ventes">
+  <div class="metric finance-metric"><span>Ventes approuvées</span><strong id="mApprovedSales">0</strong></div>
+  <div class="metric finance-metric"><span>En attente</span><strong id="mPendingSales">0</strong></div>
+  <div class="metric finance-metric"><span>Refusées</span><strong id="mRejectedSales">0</strong></div>
+  <div class="metric finance-metric"><span>Dépenses non affectées</span><strong id="mUnallocatedExpenses">0 FCFA</strong></div>
+</div>
+<p class="small finance-note" id="financeBreakdownNote">Les indicateurs détaillés se mettent à jour à partir des ventes et dépenses enregistrées.</p>
 <div class="dashboard-columns">
   <div class="card dashboard-widget"><div class="widget-heading"><div><span class="widget-icon amber">▤</span><div><h3>Stocks et alertes</h3><p>Surveille les seuils de réapprovisionnement.</p></div></div><button class="link-button" data-goto="stock">Gérer les stocks →</button></div><div id="dashStockAlerts" class="widget-content" aria-live="polite"><p class="empty">Lecture des stocks…</p></div></div>
   <div class="card dashboard-widget"><div class="widget-heading"><div><span class="widget-icon blue">✓</span><div><h3>Tâches à suivre</h3><p>Échéances et tâches non terminées.</p></div></div><button class="link-button" data-goto="tasks">Tout voir →</button></div><div id="dashTasks" class="widget-content" aria-live="polite"><p class="empty">Lecture des tâches…</p></div></div>
@@ -400,7 +407,36 @@ function renderLotProfitability(){
  const healthBox=document.getElementById('dashHealthSummary');if(healthBox){const entries=Array.isArray(data.health)?data.health:[];const due=entries.filter(x=>x.next&&x.next<=today()).length;healthBox.textContent=entries.length?`${entries.length} suivi(s) sanitaire(s) enregistré(s). ${due?due+' échéance(s) à vérifier.':'Aucune échéance échue d’après les dates saisies.'}`:'Aucun suivi sanitaire enregistré pour le moment.'}
  const automationBox=document.getElementById('automationTaskSummary');if(automationBox){const tasks=(Array.isArray(data.tasks)?data.tasks:[]).filter(t=>!t.done).sort((a,b)=>String(a.date||'9999').localeCompare(String(b.date||'9999'))).slice(0,5);automationBox.innerHTML=tasks.length?tasks.map(t=>`<div class="dash-row"><div class="dash-row-main"><div class="dash-row-title">${esc(t.title||'Tâche')}</div><div class="dash-row-sub">${esc(t.date||'Sans date')} · ${esc(t.who||'Non attribuée')}</div></div><span class="dash-badge">À suivre</span></div>`).join(''):'<p class="empty">Aucune tâche planifiée pour le moment.</p>'}
 }
-function dashboard(){document.getElementById('mAnimals').textContent=data.animals.length;let weights=data.animals.reduce((s,a)=>s+Number(a.weight||0),0);document.getElementById('mWeight').textContent=weights.toLocaleString('fr-FR')+' kg';let daily=data.animals.reduce((s,a)=>{if(!a.weight)return s;let r=ration(catType(a.cat),Number(a.weight));return s+(r[0]+r[1])/2},0);document.getElementById('mFeed').textContent=daily.toFixed(1)+' kg';document.getElementById('mSales').textContent=data.sales.length;let pendingSales=data.sales.filter(x=>x.status!=='approved'&&x.status!=='rejected').length;let approvedSales=data.sales.filter(x=>x.status==='approved');let revenue=approvedSales.reduce((sum,x)=>sum+safeAmount(x.amount),0);let expenses=data.expenses.reduce((sum,x)=>sum+safeAmount(x.amount),0);let profit=revenue-expenses;let fmt=n=>n.toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';document.getElementById('mRevenue').textContent=fmt(revenue);document.getElementById('mExpenses').textContent=fmt(expenses);document.getElementById('mProfit').textContent=(profit<0?'−':'')+fmt(Math.abs(profit));document.getElementById('mProfit').style.color=profit<0?'#9e3030':(profit>0?'#205c43':'inherit');document.getElementById('mMargin').textContent=revenue>0?((profit/revenue)*100).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %':'—';document.getElementById('profitNote').textContent='Recettes calculées uniquement sur les ventes marquées approuvées ('+approvedSales.length+'). '+pendingSales+' vente(s) en attente ou à vérifier sont exclues. Les anciennes ventes sans statut restent en attente. Cette règle locale est indicative : seule la validation côté serveur Supabase pourra faire foi. Le résultat reste incomplet si certaines charges (aliments, soins, salaires, transport, eau/électricité, mortalité, amortissements) ne sont pas saisies.';renderV21Widgets();}
+function dashboard(){
+ document.getElementById('mAnimals').textContent=data.animals.length;
+ let weights=data.animals.reduce((sum,a)=>sum+Number(a.weight||0),0);
+ document.getElementById('mWeight').textContent=weights.toLocaleString('fr-FR')+' kg';
+ let daily=data.animals.reduce((sum,a)=>{if(!a.weight)return sum;let r=ration(catType(a.cat),Number(a.weight));return sum+(r[0]+r[1])/2},0);
+ document.getElementById('mFeed').textContent=daily.toFixed(1)+' kg';
+ document.getElementById('mSales').textContent=data.sales.length;
+ let pendingSales=data.sales.filter(x=>x.status!=='approved'&&x.status!=='rejected');
+ let rejectedSales=data.sales.filter(x=>x.status==='rejected');
+ let approvedSales=data.sales.filter(x=>x.status==='approved');
+ let revenue=approvedSales.reduce((sum,x)=>sum+safeAmount(x.amount),0);
+ let expenses=data.expenses.reduce((sum,x)=>sum+safeAmount(x.amount),0);
+ let profit=revenue-expenses;
+ let fmt=n=>n.toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';
+ document.getElementById('mRevenue').textContent=fmt(revenue);
+ document.getElementById('mExpenses').textContent=fmt(expenses);
+ document.getElementById('mProfit').textContent=(profit<0?'−':'')+fmt(Math.abs(profit));
+ document.getElementById('mProfit').style.color=profit<0?'#9e3030':(profit>0?'#205c43':'inherit');
+ document.getElementById('mMargin').textContent=revenue>0?((profit/revenue)*100).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %':'—';
+ const el=(id,value)=>{const node=document.getElementById(id);if(node)node.textContent=value};
+ el('mApprovedSales',approvedSales.length);
+ el('mPendingSales',pendingSales.length);
+ el('mRejectedSales',rejectedSales.length);
+ const receiptIds=new Set((data.stockMovements||[]).filter(m=>m&&m.type==='entry').flatMap(m=>[m.expenseId,...(data.expenses||[]).filter(e=>m.id&&e.stockMovementId===m.id).map(e=>e.id)]).filter(Boolean));
+ const unallocated=(data.expenses||[]).filter(e=>e&&!String(e.lot||'').trim()&&e.allocationMethod!=='feed'&&!receiptIds.has(e.id)).reduce((sum,e)=>sum+safeAmount(e.amount),0);
+ el('mUnallocatedExpenses',fmt(unallocated));
+ document.getElementById('profitNote').textContent='Résultat de trésorerie simplifié : ventes approuvées moins toutes les dépenses enregistrées ('+approvedSales.length+' vente(s) approuvée(s)). '+pendingSales.length+' vente(s) en attente et '+rejectedSales.length+' refusée(s) exclues. Les achats d’aliments sont comptés à leur date de paiement ici ; le tableau par lot utilise une estimation des aliments consommés. Ne pas additionner ces deux méthodes. Résultat local indicatif, non certifié.';
+ el('financeBreakdownNote').textContent='Dépenses non affectées : '+fmt(unallocated)+'. Elles restent visibles dans les finances globales mais ne sont pas imputées à un lot. Les charges communes réparties sont détaillées dans la rentabilité par lot.';
+ renderV21Widgets();
+}
 function renderHealth(){
  const select=document.getElementById('hAnimal'); if(!select)return; const previous=select.value; select.innerHTML='<option value="">Choisir un animal</option>'+data.animals.map(a=>`<option value="${esc(a.id)}">${esc(a.id)} — ${esc(a.cat||'')}</option>`).join(''); if(data.animals.some(a=>a.id===previous))select.value=previous;
  const body=document.getElementById('healthRows');body.innerHTML='';const entries=Array.isArray(data.health)?data.health:[];if(!entries.length)body.innerHTML='<tr><td colspan="7" class="empty">Aucun suivi sanitaire enregistré.</td></tr>';else entries.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach((x,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(x.date||'—')}</td><td>${esc(x.animal||'—')}</td><td>${esc(x.type||'—')}</td><td>${esc(x.product||'—')}</td><td>${esc(x.next||'—')}</td><td>${esc(x.notes||'—')}</td><td><button class="danger" data-del-health="${data.health.indexOf(x)}">Supprimer</button></td>`;body.appendChild(tr)});
