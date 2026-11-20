@@ -534,8 +534,8 @@ function renderFinancePeriods(){
  const fmt=n=>n.toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';
  const put=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
  const mr=sum(monthSales,'amount'),me=sum(monthExpenses,'amount'),yr=sum(yearSales,'amount'),ye=sum(yearExpenses,'amount');
- const collected=(rows)=>rows.reduce((n,x)=>n+(Array.isArray(x.payments)?x.payments.filter(p=>String(p.date||'').slice(0,7)===month).reduce((a,p)=>a+safeAmount(p.amount),0):0),0);
- const collectedYear=(rows)=>rows.reduce((n,x)=>n+(Array.isArray(x.payments)?x.payments.filter(p=>String(p.date||'').slice(0,4)===year).reduce((a,p)=>a+safeAmount(p.amount),0):0),0);
+ const collected=(rows)=>rows.reduce((n,x)=>n+(salePaid(x)===null?0:x.payments.filter(p=>String(p.date||'').slice(0,7)===month).reduce((a,p)=>a+safeAmount(p.amount),0)),0);
+ const collectedYear=(rows)=>rows.reduce((n,x)=>n+(salePaid(x)===null?0:x.payments.filter(p=>String(p.date||'').slice(0,4)===year).reduce((a,p)=>a+safeAmount(p.amount),0)),0);
  const mc=collected(approved),yc=collectedYear(approved);
  put('periodMonthRevenue',fmt(mr));put('periodMonthCollected',fmt(mc));put('periodMonthExpenses',fmt(me));put('periodMonthBalance',(me>mc?'−':'')+fmt(Math.abs(mc-me)));
  put('periodYearRevenue',fmt(yr));put('periodYearCollected',fmt(yc));put('periodYearExpenses',fmt(ye));put('periodYearBalance',(ye>yc?'−':'')+fmt(Math.abs(yc-ye)));
@@ -556,7 +556,7 @@ function dashboard(){
  let rejectedSales=data.sales.filter(x=>x.status==='rejected');
  let approvedSales=data.sales.filter(x=>x.status==='approved');
  let revenue=approvedSales.reduce((sum,x)=>sum+safeAmount(x.amount),0);
- let collected=approvedSales.reduce((sum,x)=>sum+(Array.isArray(x.payments)?x.payments.reduce((n,p)=>n+safeAmount(p.amount),0):0),0);
+ let collected=approvedSales.reduce((sum,x)=>sum+(salePaid(x)===null?0:salePaid(x)),0);
  let receivable=approvedSales.reduce((sum,x)=>sum+(saleBalance(x)===null?0:saleBalance(x)),0);
  let paymentUnknown=approvedSales.filter(x=>saleBalance(x)===null).length;
  let expenses=data.expenses.reduce((sum,x)=>sum+safeAmount(x.amount),0);
@@ -790,8 +790,8 @@ document.getElementById('exportPdf').addEventListener('click',()=>{
  const total=(rows,key)=>rows.reduce((n,x)=>n+safeAmount(x[key]),0);
  const periodRevenue=total(periodSales,'amount'),periodCost=total(periodExpenses,'amount');
  const annualRevenue=total(annualSales,'amount'),annualCost=total(annualExpenses,'amount');
- const periodCollected=periodSales.reduce((n,x)=>n+(Array.isArray(x.payments)?x.payments.filter(p=>String(p.date||'').slice(0,7)===selectedPeriod).reduce((a,p)=>a+safeAmount(p.amount),0):0),0);
- const annualCollected=annualSales.reduce((n,x)=>n+(Array.isArray(x.payments)?x.payments.filter(p=>String(p.date||'').slice(0,4)===selectedYear).reduce((a,p)=>a+safeAmount(p.amount),0):0),0);
+ const periodCollected=periodSales.reduce((n,x)=>n+(salePaid(x)===null?0:x.payments.filter(p=>String(p.date||'').slice(0,7)===selectedPeriod).reduce((a,p)=>a+safeAmount(p.amount),0)),0);
+ const annualCollected=annualSales.reduce((n,x)=>n+(salePaid(x)===null?0:x.payments.filter(p=>String(p.date||'').slice(0,4)===selectedYear).reduce((a,p)=>a+safeAmount(p.amount),0)),0);
  const receivableKnown=approvedSales.reduce((n,x)=>n+(saleBalance(x)===null?0:saleBalance(x)),0);
  const paymentUnknown=approvedSales.filter(x=>saleBalance(x)===null).length;
  const annualPigs=annualSales.reduce((n,x)=>n+(Number.isInteger(Number(x.quantity))&&Number(x.quantity)>0?Number(x.quantity):0),0);
