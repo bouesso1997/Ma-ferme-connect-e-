@@ -28,3 +28,9 @@ Tant que cette fonction serveur et les politiques RLS ne sont pas implémentées
 - Vérification de l'absence de doublons d'identifiants HTML dans le fichier examiné.
 
 Aucun test navigateur réel, test multi-utilisateur ou test Supabase n'a été exécuté dans cette étape.
+
+## Complément — identifiants et dépenses locales
+
+- Les nouvelles ventes et dépenses locales reçoivent désormais un identifiant stable généré côté navigateur et un horodatage de création. Cela prépare une future synchronisation idempotente, sans rendre ces valeurs fiables côté serveur.
+- Le bouton et le gestionnaire de suppression locale des dépenses ont été retirés de l'interface. Une correction devra être conçue comme une opération d'administration traçable côté serveur.
+- Ces changements ne créent pas encore de journal d'audit Supabase et ne sécurisent pas les données stockées dans le navigateur. La validation serveur et les politiques RLS restent indispensables.
