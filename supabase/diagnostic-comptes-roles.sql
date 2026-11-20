@@ -46,3 +46,56 @@ join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
   and p.proname in ('has_farm_role', 'is_farm_admin', 'is_farm_member')
 order by p.proname;
+
+
+-- 5) Structure de farm_members et contraintes qui encadrent les rôles.
+-- Les valeurs de colonnes personnelles ne sont jamais lues.
+select
+  a.attname as column_name,
+  pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type,
+  a.attnotnull as not_null,
+  pg_get_expr(d.adbin, d.adrelid) as default_expression
+from pg_attribute a
+join pg_class c on c.oid = a.attrelid
+join pg_namespace n on n.oid = c.relnamespace
+left join pg_attrdef d on d.adrelid = c.oid and d.adnum = a.attnum
+where n.nspname = 'public'
+  and c.relname = 'farm_members'
+  and a.attnum > 0
+  and not a.attisdropped
+order by a.attnum;
+
+select
+  conname as constraint_name,
+  contype as constraint_type,
+  pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.farm_members'::regclass
+order by conname;
+
+-- 6) Si role est un ENUM PostgreSQL, afficher ses valeurs autorisées.
+select
+  t.typname as enum_type,
+  e.enumlabel as allowed_value,
+  e.enumsortorder as sort_order
+from pg_attribute a
+join pg_class c on c.oid = a.attrelid
+join pg_namespace n on n.oid = c.relnamespace
+join pg_type t on t.oid = a.atttypid
+join pg_enum e on e.enumtypid = t.oid
+where n.nspname = 'public'
+  and c.relname = 'farm_members'
+  and a.attname = 'role'
+  and a.attnum > 0
+  and not a.attisdropped
+order by e.enumsortorder;
+
+-- 7) Droits SQL accordés sur farm_members (pas de données de compte).
+select
+  grantee,
+  privilege_type,
+  is_grantable
+from information_schema.role_table_grants
+where table_schema = 'public'
+  and table_name = 'farm_members'
+order by grantee, privilege_type;
