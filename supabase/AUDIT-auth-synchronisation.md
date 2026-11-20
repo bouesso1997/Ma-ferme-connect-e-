@@ -25,3 +25,13 @@ Ne pas activer la synchronisation générale. Ne pas créer de bouton local « A
 ## Entrée nécessaire avant migration
 
 Exécuter `diagnostic-ventes-securite.sql` sur le projet Supabase de test et examiner ses résultats avant de rédiger le SQL de modification. Le script de diagnostic est en lecture seule.
+
+## Correctifs de concurrence de session — 20 novembre 2026
+
+- Le renouvellement de session est maintenant associé à l'époque de session qui l'a déclenché.
+- Une nouvelle connexion ne peut plus attendre ni réutiliser la promesse de renouvellement d'une ancienne session.
+- Le nettoyage d'une promesse ne peut plus effacer celle d'une session plus récente.
+- Une réponse tardive d'une ancienne tentative de connexion ne peut plus remplacer le message d'état d'une session plus récente.
+- Le renouvellement ne change pas lui-même l'époque de session : une actualisation valide ne se fait pas interpréter comme une déconnexion.
+
+Ces contrôles ont été vérifiés par inspection statique du code. Ils n'ont pas encore été validés par des essais navigateur ou par des sessions Supabase réelles. Les opérations de synchronisation générale et Santé restent désactivées.
