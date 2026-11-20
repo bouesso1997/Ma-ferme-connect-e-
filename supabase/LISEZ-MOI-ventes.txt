@@ -1,0 +1,23 @@
+MA FERME CONNECTÉE — DIAGNOSTIC DE SÉCURITÉ DES VENTES
+
+Fichier à exécuter : diagnostic-ventes-securite.sql
+
+IMPORTANT
+- Ce script est strictement en lecture seule.
+- Il ne crée, ne modifie et ne supprime aucune table, ligne, fonction ou politique.
+- Il ne synchronise aucune donnée de l'application.
+- Exécuter d'abord sur le projet Supabase de test, pas sur la base de production.
+- Ne jamais communiquer de mot de passe, clé Supabase, jeton, e-mail ou donnée personnelle.
+
+ÉTAPES
+1. Ouvrir le projet Supabase de test.
+2. Ouvrir SQL Editor.
+3. Coller le contenu de diagnostic-ventes-securite.sql.
+4. Exécuter le script.
+5. Copier les résultats des cinq requêtes et les transmettre ici, en masquant toute donnée personnelle éventuelle.
+
+POURQUOI
+Le code actuel conserve les ventes dans le stockage local du navigateur et les ajoute immédiatement au chiffre d'affaires. La connexion Supabase présente dans l'application vérifie le rôle administrateur, mais elle ne synchronise pas les ventes. Avant d'ajouter l'approbation, il faut connaître précisément la structure de farm_sales, ses contraintes, ses politiques RLS et les fonctions de rôles déjà installées.
+
+AUCUNE MODIFICATION DE PRODUCTION
+La validation serveur et les politiques d'accès seront préparées après lecture de ces résultats. Ne pas appliquer de migration ni réactiver l'envoi général avant revue et tests.
