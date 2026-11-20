@@ -551,9 +551,19 @@ document.getElementById('exportPdf').addEventListener('click',()=>{
  const approvedSales=data.sales.filter(x=>x.status==='approved'), pendingSales=data.sales.filter(x=>x.status!=='approved'&&x.status!=='rejected').length; const revenue=approvedSales.reduce((a,x)=>a+safeAmount(x.amount),0), expenses=data.expenses.reduce((a,x)=>a+safeAmount(x.amount),0);
  const weight=data.animals.reduce((a,x)=>a+Number(x.weight||0),0);
  const expenseCategories=['Alimentation','Prophylaxie','Salaires','Énergie','Logistique','Autres']; const expenseByCategory=expenseCategories.map(category=>({category,total:data.expenses.filter(x=>(x.category||'Autres')===category).reduce((sum,x)=>sum+safeAmount(x.amount),0)})).filter(x=>x.total>0);
+ const selectedPeriod=document.getElementById('financePeriodMonth')?.value||new Date().toISOString().slice(0,7);
+ const selectedYear=selectedPeriod.slice(0,4);
+ const periodSales=approvedSales.filter(x=>String(x.date||'').slice(0,7)===selectedPeriod);
+ const annualSales=approvedSales.filter(x=>String(x.date||'').slice(0,4)===selectedYear);
+ const periodExpenses=data.expenses.filter(x=>String(x.date||'').slice(0,7)===selectedPeriod);
+ const annualExpenses=data.expenses.filter(x=>String(x.date||'').slice(0,4)===selectedYear);
+ const total=(rows,key)=>rows.reduce((n,x)=>n+safeAmount(x[key]),0);
+ const periodRevenue=total(periodSales,'amount'),periodCost=total(periodExpenses,'amount');
+ const annualRevenue=total(annualSales,'amount'),annualCost=total(annualExpenses,'amount');
  const content=[
  '<h1>🐖 Ma Ferme Connectée</h1><p>Rapport de gestion de la ferme · Exporté le '+new Date().toLocaleString('fr-FR')+'</p>',
  '<section><h2>Synthèse</h2><div class="summary"><div>Animaux : <b>'+data.animals.length+'</b></div><div>Poids total connu : <b>'+weight.toLocaleString('fr-FR')+' kg</b></div><div>Ventes : <b>'+data.sales.length+'</b></div><div>Ventes en attente : <b>'+pendingSales+'</b></div><div>Ventes approuvées : <b>'+approvedSales.length+'</b></div><div>Recettes approuvées : <b>'+money(revenue)+'</b></div><div>Dépenses : <b>'+money(expenses)+'</b></div><div>Résultat provisoire : <b>'+money(revenue-expenses)+'</b></div><div>Stocks : <b>'+data.stocks.length+'</b></div><div>Tâches : <b>'+data.tasks.length+'</b></div><div>Employés : <b>'+(data.employees||[]).length+'</b></div></div><p class="note">Seules les ventes marquées approuvées sont comptées dans les recettes ; les ventes en attente sont exclues. Les anciennes ventes sans statut restent en attente. Ce calcul local ne remplace pas une validation serveur et ne constitue pas une comptabilité complète.</p></section>',
+ '<section><h2>Bilan mensuel et annuel</h2><p>Mois sélectionné : '+esc(selectedPeriod)+' · Année : '+esc(selectedYear)+'</p><div class="summary"><div>Recettes du mois : <b>'+money(periodRevenue)+'</b></div><div>Dépenses du mois : <b>'+money(periodCost)+'</b></div><div>Solde du mois : <b>'+money(periodRevenue-periodCost)+'</b></div><div>Ventes approuvées du mois : <b>'+periodSales.length+'</b></div><div>Recettes annuelles : <b>'+money(annualRevenue)+'</b></div><div>Dépenses annuelles : <b>'+money(annualCost)+'</b></div><div>Solde annuel : <b>'+money(annualRevenue-annualCost)+'</b></div><div>Ventes approuvées de l’année : <b>'+annualSales.length+'</b></div></div><p class="note">Ventes approuvées uniquement. Dépenses prises à leur date d’enregistrement. Résultats de trésorerie locaux indicatifs.</p></section>',
  reportTable('Animaux',['Identifiant','Catégorie','Sexe','Naissance','Poids (kg)','Dernière pesée','Notes santé'],data.animals.map(a=>[a.id,a.cat,a.sex,a.birth,a.weight,a.date,a.health])),
  reportTable('Stocks',['Produit','Catégorie','Quantité','Unité','Seuil d’alerte','Prix'],data.stocks.map(x=>[x.name,x.category,x.qty,x.unit,x.min,x.price])),
  reportTable('Mouvements de stock',['Date','Produit','Quantité','Unité','Note'],(data.stockMovements||[]).map(x=>[x.date,x.stock,x.qty,x.unit,x.note])),
