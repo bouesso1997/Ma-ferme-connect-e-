@@ -260,7 +260,7 @@ header:before{display:none!important;content:none!important}
 </div>
 <div class="table-wrap"><table><thead><tr><th>Truie</th><th>Situation enregistrée</th><th>Date de suivi</th><th>Verrat</th><th>Saillie</th><th>Mise bas prévue</th><th>Observations</th></tr></thead><tbody id="reproRows"><tr><td colspan="7" class="empty">Aucun suivi reproducteur.</td></tr></tbody></table></div>
 <p class="small">Les indicateurs comptent uniquement les truies ayant un statut enregistré. Ils ne remplacent pas un examen de gestation ni un registre officiel d’élevage.</p>
-<div class="card"><h3>Calendrier prévisionnel des mises bas</h3><p class="small">La date prévisionnelle utilise d’abord la date saisie. Si elle est absente, une estimation à 114 jours après la saillie est affichée pour les statuts « saillie enregistrée » et « gestation confirmée ». Cette estimation est indicative et doit être confirmée par le suivi vétérinaire.</p><div class="metrics finance-metrics"><div class="metric finance-metric"><span>En retard</span><strong id="reproOverdue">0</strong></div><div class="metric finance-metric"><span>Dans les 7 jours</span><strong id="reproNext7">0</strong></div><div class="metric finance-metric"><span>Dans les 30 jours</span><strong id="reproNext30">0</strong></div></div><div class="table-wrap"><table><thead><tr><th>Truie</th><th>Date prévue</th><th>Échéance</th><th>Origine de la date</th></tr></thead><tbody id="reproCalendarRows"><tr><td colspan="4" class="empty">Aucune échéance calculable.</td></tr></tbody></table></div><p class="small">Les rappels apparaissent dans l’application à l’ouverture et lors de l’actualisation. Aucune notification mobile ou alerte en arrière-plan n’est activée.</p></div>
+<div class="card"><h3>Calendrier prévisionnel des mises bas</h3><p class="small">La date prévisionnelle utilise d’abord la date saisie. Si elle est absente, une estimation à 114 jours après la saillie est affichée pour les statuts « saillie enregistrée » et « gestation confirmée ». Cette estimation est indicative et doit être confirmée par le suivi vétérinaire.</p><div class="metrics finance-metrics"><div class="metric finance-metric"><span>En retard</span><strong id="reproOverdue">0</strong></div><div class="metric finance-metric"><span>Dans les 7 jours</span><strong id="reproNext7">0</strong></div><div class="metric finance-metric"><span>Dans les 30 jours</span><strong id="reproNext30">0</strong></div></div><div class="table-wrap"><table><thead><tr><th>Truie</th><th>Date prévue</th><th>Échéance</th><th>Origine de la date</th></tr></thead><tbody id="reproCalendarRows"><tr><td colspan="4" class="empty">Aucune échéance calculable.</td></tr></tbody></table></div><div class="grid" style="align-items:end"><div><p class="small" id="reproNotificationStatus" aria-live="polite">Les notifications sont facultatives. Elles dépendent du navigateur et de ses autorisations.</p></div><div><button type="button" id="enableReproNotifications">Activer les notifications de mises bas</button></div></div><p class="small">Les alertes sont vérifiées à l’ouverture de l’application et lors de son actualisation. Elles ne garantissent pas une alerte lorsque l’application est fermée : les notifications en arrière-plan nécessitent un service push dédié.</p></div>
 </div>
 </section>
 <section id="health" class="panel">
@@ -567,6 +567,27 @@ function dashboard(){
  renderProductionPerformance();
  renderV21Widgets();
 }
+function reproDueItems(){
+ const latest=new Map();
+ (data.reproduction||[]).forEach((x,i)=>{if(!x||!x.sow)return;const old=latest.get(x.sow);if(!old||String(x.date||'')>String(old.date||'')||(x.date===old.date&&i>old.i))latest.set(x.sow,{...x,i})});
+ const todayDate=new Date(today()+'T00:00:00Z'),items=[];
+ latest.forEach(x=>{if(!['mated','gestating'].includes(x.status))return;let due=x.dueDate||'';if(!due&&x.serviceDate){const d=new Date(x.serviceDate+'T00:00:00Z');if(!Number.isNaN(d.getTime())){d.setUTCDate(d.getUTCDate()+114);due=d.toISOString().slice(0,10)}}if(!due)return;const d=new Date(due+'T00:00:00Z');if(Number.isNaN(d.getTime()))return;const days=Math.round((d-todayDate)/86400000);if(days<=7)items.push({sow:x.sow,due,days})});
+ return items.sort((a,b)=>a.due.localeCompare(b.due));
+}
+function checkReproNotifications(){
+ if(!('Notification' in window)||Notification.permission!=='granted')return;
+ const items=reproDueItems();if(!items.length)return;
+ const key='mfc_repro_notice_'+today(),signature=items.map(x=>x.sow+':'+x.due).join('|');
+ try{if(localStorage.getItem(key)===signature)return;const overdue=items.filter(x=>x.days<0).length,upcoming=items.filter(x=>x.days>=0).length;const lines=items.slice(0,3).map(x=>x.sow+' : '+(x.days<0?'en retard de '+Math.abs(x.days)+' j':x.days===0?'aujourd’hui':'dans '+x.days+' j')).join(' • ');new Notification('Ma Ferme Connectée — mises bas',{body:(overdue?overdue+' échéance(s) en retard. ':'')+(upcoming?upcoming+' prévue(s) dans les 7 jours. ':'')+lines});localStorage.setItem(key,signature)}catch(e){const el=document.getElementById('reproNotificationStatus');if(el)el.textContent='Notification non envoyée par le navigateur : '+e.message}
+}
+document.getElementById('enableReproNotifications')?.addEventListener('click',async()=>{
+ const el=document.getElementById('reproNotificationStatus');
+ if(!('Notification' in window)){if(el)el.textContent='Ce navigateur ne prend pas en charge les notifications web.';return}
+ try{const permission=await Notification.requestPermission();if(permission!=='granted'){if(el)el.textContent='Autorisation non accordée. Les échéances restent visibles dans le calendrier.';return}
+ if(el)el.textContent='Notifications autorisées. Les échéances proches seront signalées à l’ouverture de l’application.';
+ const items=reproDueItems();if(items.length)checkReproNotifications();else if(el)el.textContent+=' Aucune échéance en retard ou prévue dans les 7 jours.';
+ }catch(e){if(el)el.textContent='Impossible d’activer les notifications dans ce navigateur.'}
+});
 function renderReproduction(){
  if(!Array.isArray(data.reproduction))data.reproduction=[];
  const sows=(data.animals||[]).filter(a=>a&&((a.cat||'').startsWith('Truie')||a.sex==='Femelle'));
@@ -777,6 +798,6 @@ document.getElementById('healthPull').addEventListener('click',async()=>{if(!clo
 
 document.getElementById('cloudPush').addEventListener('click',()=>{cloudStatus('Envoi général désactivé par sécurité : l’ancienne méthode supprimait les lignes serveur avant de les recréer. Aucune donnée n’a été envoyée ni supprimée. Nous réactiverons une synchronisation générale après avoir conçu et testé une méthode sans suppression préalable.');});
 
-render();calcFeed();
+render();calcFeed();checkReproNotifications();
 </script>
 </body></html>
