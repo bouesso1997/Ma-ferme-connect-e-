@@ -240,6 +240,27 @@ header:before{display:none!important;content:none!important}
 <h3>Historique des comptages</h3><div class="table-wrap"><table><thead><tr><th>Date</th><th>Catégorie</th><th>Effectif</th><th>Observations</th><th>Action</th></tr></thead><tbody id="herdCountRows"><tr><td colspan="5" class="empty">Aucun comptage.</td></tr></tbody></table></div>
 <p class="small">Pour obtenir un inventaire complet, enregistrez chaque catégorie à la même date. Les effectifs sont des comptages physiques et ne sont pas calculés à partir des ventes ou des naissances.</p>
 </div>
+<div class="card"><h2>Suivi des reproducteurs</h2>
+<p class="small">Enregistrez manuellement la situation reproductive de chaque truie. Aucun statut n’est déduit automatiquement : confirmez les informations avec le suivi réel de l’élevage et votre vétérinaire.</p>
+<form id="reproForm"><div class="grid">
+<div><label for="reproSow">Truie (identifiant)</label><select id="reproSow" required><option value="">Choisir une truie</option></select></div>
+<div><label for="reproStatus">Situation actuelle</label><select id="reproStatus"><option value="available">Disponible pour reproduction</option><option value="mated">Saillie enregistrée</option><option value="gestating">Gestation confirmée</option><option value="lactating">Allaitement</option><option value="resting">Repos</option><option value="retired">Retirée de la reproduction</option></select></div>
+<div><label for="reproDate">Date de mise à jour</label><input id="reproDate" type="date" required></div>
+<div><label for="reproBoar">Verrat (facultatif)</label><select id="reproBoar"><option value="">Non renseigné</option></select></div>
+<div><label for="reproServiceDate">Date de saillie (facultatif)</label><input id="reproServiceDate" type="date"></div>
+<div><label for="reproDueDate">Mise bas prévue (facultatif)</label><input id="reproDueDate" type="date"></div>
+<div><label for="reproNotes">Observations</label><input id="reproNotes" maxlength="300" placeholder="Observations de suivi"></div>
+</div><button type="submit">Enregistrer le suivi</button></form>
+<p id="reproStatusMessage" class="small" aria-live="polite"></p>
+<div class="metrics finance-metrics">
+<div class="metric finance-metric"><span>Disponibles</span><strong id="reproAvailable">0</strong></div>
+<div class="metric finance-metric"><span>Saillies enregistrées</span><strong id="reproMated">0</strong></div>
+<div class="metric finance-metric"><span>Gestations confirmées</span><strong id="reproGestating">0</strong></div>
+<div class="metric finance-metric"><span>Allaitement</span><strong id="reproLactating">0</strong></div>
+</div>
+<div class="table-wrap"><table><thead><tr><th>Truie</th><th>Situation enregistrée</th><th>Date de suivi</th><th>Verrat</th><th>Saillie</th><th>Mise bas prévue</th><th>Observations</th></tr></thead><tbody id="reproRows"><tr><td colspan="7" class="empty">Aucun suivi reproducteur.</td></tr></tbody></table></div>
+<p class="small">Les indicateurs comptent uniquement les truies ayant un statut enregistré. Ils ne remplacent pas un examen de gestation ni un registre officiel d’élevage.</p>
+</div>
 </section>
 <section id="health" class="panel">
 <div class="card"><h2>🩺 Registre sanitaire</h2><p class="small">Enregistre les vaccinations, traitements, observations et dates de suivi. Les protocoles et doses doivent être confirmés par un vétérinaire local : cette fiche ne prescrit aucun médicament.</p><form id="healthForm"><div class="grid"><div><label for="hAnimal">Animal / lot</label><select id="hAnimal" required><option value="">Choisir un animal</option></select></div><div><label for="hDate">Date de l’intervention</label><input id="hDate" type="date" required></div><div><label for="hType">Type</label><select id="hType"><option>Vaccination</option><option>Traitement vétérinaire</option><option>Observation sanitaire</option><option>Vermifugation</option><option>Contrôle vétérinaire</option><option>Autre</option></select></div><div><label for="hProduct">Produit / intervention</label><input id="hProduct" required placeholder="Nom indiqué par le vétérinaire"></div><div><label for="hNext">Prochain suivi (facultatif)</label><input id="hNext" type="date"></div><div><label for="hWho">Responsable</label><input id="hWho" placeholder="Nom du responsable"></div></div><label for="hNotes">Notes / observations</label><textarea id="hNotes" rows="3" placeholder="Symptômes observés, consigne vétérinaire, résultat…"></textarea><button type="submit">Enregistrer dans le registre sanitaire</button></form><p id="healthStatus" class="small" aria-live="polite"></p></div>
@@ -343,7 +364,7 @@ header:before{display:none!important;content:none!important}
 const KEY='mfc_integrated_v1';
 const CLOUD_CFG='mfc_supabase_cfg_v13';
 let cloudSession=null;
-const blank={animals:[],stocks:[],sales:[],tasks:[],expenses:[],employees:[],health:[],herdEvents:[],herdCounts:[]};
+const blank={animals:[],stocks:[],sales:[],tasks:[],expenses:[],employees:[],health:[],herdEvents:[],herdCounts:[],reproduction:[]};
 let data=loadData(), lastFeed=null;
 function loadData(){try{return {...blank,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){return {...blank}}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){return false}}
@@ -545,6 +566,36 @@ function dashboard(){
  renderProductionPerformance();
  renderV21Widgets();
 }
+function renderReproduction(){
+ if(!Array.isArray(data.reproduction))data.reproduction=[];
+ const sows=(data.animals||[]).filter(a=>a&&((a.cat||'').startsWith('Truie')||a.sex==='Femelle'));
+ const boars=(data.animals||[]).filter(a=>a&&((a.cat||'').includes('Verrat')||a.sex==='Mâle'));
+ const sow=document.getElementById('reproSow'),boar=document.getElementById('reproBoar');
+ if(sow){const prev=sow.value;sow.innerHTML='<option value="">Choisir une truie</option>'+sows.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+' — '+esc(a.cat||'')+'</option>').join('');if(sows.some(a=>a.id===prev))sow.value=prev}
+ if(boar){const prev=boar.value;boar.innerHTML='<option value="">Non renseigné</option>'+boars.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+'</option>').join('');if(boars.some(a=>a.id===prev))boar.value=prev}
+ const latest=new Map();data.reproduction.forEach((x,i)=>{if(!x||!x.sow)return;const old=latest.get(x.sow);if(!old||String(x.date||'')>String(old.x.date||'')||(x.date===old.x.date&&i>old.i))latest.set(x.sow,{x,i})});
+ const counts={available:0,mated:0,gestating:0,lactating:0};latest.forEach(({x})=>{if(Object.prototype.hasOwnProperty.call(counts,x.status))counts[x.status]++});
+ const put=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v.toLocaleString('fr-FR')};
+ put('reproAvailable',counts.available);put('reproMated',counts.mated);put('reproGestating',counts.gestating);put('reproLactating',counts.lactating);
+ const labels={available:'Disponible',mated:'Saillie enregistrée',gestating:'Gestation confirmée',lactating:'Allaitement',resting:'Repos',retired:'Retirée de la reproduction'};
+ const body=document.getElementById('reproRows');if(!body)return;body.innerHTML='';
+ if(!latest.size){body.innerHTML='<tr><td colspan="7" class="empty">Aucun suivi reproducteur.</td></tr>';return}
+ [...latest.entries()].sort((a,b)=>a[0].localeCompare(b[0],'fr')).forEach(([id,{x}])=>{const tr=document.createElement('tr');tr.innerHTML='<td>'+esc(id)+'</td><td>'+esc(labels[x.status]||'—')+'</td><td>'+esc(x.date||'—')+'</td><td>'+esc(x.boar||'—')+'</td><td>'+esc(x.serviceDate||'—')+'</td><td>'+esc(x.dueDate||'—')+'</td><td>'+esc(x.notes||'—')+'</td>';body.appendChild(tr)});
+}
+document.getElementById('reproDate').value=today();
+document.getElementById('reproForm').addEventListener('submit',e=>{
+ e.preventDefault();const sow=document.getElementById('reproSow').value,status=document.getElementById('reproStatus').value,date=document.getElementById('reproDate').value,boar=document.getElementById('reproBoar').value,serviceDate=document.getElementById('reproServiceDate').value,dueDate=document.getElementById('reproDueDate').value;
+ const animal=(data.animals||[]).find(a=>a&&a.id===sow),boarAnimal=boar?(data.animals||[]).find(a=>a&&a.id===boar):null;
+ const validStatuses=['available','mated','gestating','lactating','resting','retired'];
+ if(!animal||!((animal.cat||'').startsWith('Truie')||animal.sex==='Femelle')||!validStatuses.includes(status)||!date||(boar&&!boarAnimal)|| (serviceDate&&serviceDate>date) || (dueDate&&serviceDate&&dueDate<serviceDate)){
+ document.getElementById('reproStatusMessage').textContent='Vérifiez la truie, le statut, les dates et le verrat sélectionné.';return}
+ if(!Array.isArray(data.reproduction))data.reproduction=[];
+ const entry={id:(crypto.randomUUID?crypto.randomUUID():'repro-'+Date.now()),sow,status,date,boar,serviceDate,dueDate,notes:document.getElementById('reproNotes').value.trim()};
+ data.reproduction.push(entry);
+ if(!save()){data.reproduction.pop();document.getElementById('reproStatusMessage').textContent='Échec de sauvegarde : suivi non conservé.';return}
+ document.getElementById('reproStatusMessage').textContent='Suivi reproducteur enregistré dans l’historique local.';
+ e.target.reset();document.getElementById('reproDate').value=today();renderReproduction();
+});
 function renderHerdCounts(){
  if(!Array.isArray(data.herdCounts))data.herdCounts=[];
  const rows=data.herdCounts,byDate=new Map();
@@ -599,7 +650,7 @@ function renderHealth(){
 }
 document.getElementById('hDate').value=today();
 document.getElementById('healthForm').addEventListener('submit',e=>{e.preventDefault();if(!Array.isArray(data.health))data.health=[];data.health.push({animal:document.getElementById('hAnimal').value,date:document.getElementById('hDate').value,type:document.getElementById('hType').value,product:document.getElementById('hProduct').value.trim(),next:document.getElementById('hNext').value,who:document.getElementById('hWho').value.trim(),notes:document.getElementById('hNotes').value.trim()});const ok=save();document.getElementById('healthStatus').textContent=ok?'Suivi sanitaire enregistré sur cet appareil. Pensez à sauvegarder puis synchroniser après vérification des droits Supabase.':'Enregistrement temporaire : stockage local indisponible.';e.target.reset();document.getElementById('hDate').value=today();renderHealth()});
-function render(){renderHerdCounts();renderHerdEvents();renderAnimals();renderStocks();renderSales();renderTaskAssignees();renderTasks();renderStaff();renderExpenses();renderHealth();dashboard()}
+function render(){renderReproduction();renderHerdCounts();renderHerdEvents();renderAnimals();renderStocks();renderSales();renderTaskAssignees();renderTasks();renderStaff();renderExpenses();renderHealth();dashboard()}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-del-herd-count]');if(!b)return;const i=Number(b.dataset.delHerdCount);if(!Number.isInteger(i)||i<0||i>=data.herdCounts.length)return;if(!confirm('Supprimer ce comptage de l’historique local ?'))return;const removed=data.herdCounts.splice(i,1)[0];if(!save()){data.herdCounts.splice(i,0,removed);alert('Échec de sauvegarde : suppression annulée.');return}renderHerdCounts()});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-del-herd-event]');if(!b)return;const i=Number(b.dataset.delHerdEvent);if(!Number.isInteger(i)||i<0||i>=data.herdEvents.length)return;if(!confirm('Supprimer cet événement du registre local ?'))return;const removed=data.herdEvents.splice(i,1)[0];if(!save()){data.herdEvents.splice(i,0,removed);alert('Échec de sauvegarde : suppression annulée.');return}renderHerdEvents()});
 document.getElementById('dedupeAnimals').addEventListener('click',()=>{
@@ -688,6 +739,7 @@ document.getElementById('exportPdf').addEventListener('click',()=>{
  reportTable('Animaux',['Identifiant','Catégorie','Sexe','Naissance','Poids (kg)','Dernière pesée','Notes santé'],data.animals.map(a=>[a.id,a.cat,a.sex,a.birth,a.weight,a.date,a.health])),
  reportTable('Stocks',['Produit','Catégorie','Quantité','Unité','Seuil d’alerte','Prix'],data.stocks.map(x=>[x.name,x.category,x.qty,x.unit,x.min,x.price])),
  reportTable('Mouvements de stock',['Date','Produit','Quantité','Unité','Note'],(data.stockMovements||[]).map(x=>[x.date,x.stock,x.qty,x.unit,x.note])),
+ reportTable('Suivi des reproducteurs',['Truie','Situation','Date','Verrat','Date saillie','Mise bas prévue','Observations'],(data.reproduction||[]).map(x=>[x.sow,({available:'Disponible',mated:'Saillie enregistrée',gestating:'Gestation confirmée',lactating:'Allaitement',resting:'Repos',retired:'Retirée'}[x.status]||x.status),x.date,x.boar||'',x.serviceDate||'',x.dueDate||'',x.notes||''])),
  reportTable('Inventaires physiques',['Date','Catégorie','Effectif compté','Observations'],(data.herdCounts||[]).map(x=>[x.date,x.category,x.count,x.notes||''])),
  reportTable('Événements du cheptel',['Date','Événement','Truie / lot','Nombre','Observations'],(data.herdEvents||[]).map(x=>[x.date,x.type==='births'?'Naissances vivantes':x.type==='weanings'?'Sevrages':x.type==='mortalities'?'Mortalités':x.type,x.group,x.count,x.notes||''])),
  reportTable('Ventes',['Date','Animal / lot','Nombre de porcs','Poids (kg)','Montant','Statut'],data.sales.map(x=>[x.date,x.animal,Number.isInteger(Number(x.quantity))&&Number(x.quantity)>0?x.quantity:'Non renseigné',x.weight,money(x.amount),saleStatusLabel(x)])),
