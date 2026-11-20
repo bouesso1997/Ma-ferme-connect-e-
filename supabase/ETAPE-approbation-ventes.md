@@ -1,59 +1,48 @@
-# Étape suivante — sécurisation des ventes et justificatifs
+# Étape suivante — sécurisation serveur des ventes et des comptes
 
 Branche : `travail-v30-3-reprise`
 
-## Objectif
+## État actuel du logiciel
 
-Préparer une approbation des ventes réellement contrôlée par Supabase, et non par une variable JavaScript modifiable dans le navigateur. Le diagnostic complémentaire ne change aucune donnée.
+- Les ventes créées localement sont en attente par défaut.
+- Le tableau de bord et les rapports distinguent ventes approuvées, encaissements réellement saisis, dépenses et créances connues.
+- Les paiements restent des données locales : leur historique n'est pas encore validé par Supabase.
+- La connexion actuelle accepte le rôle administrateur actif uniquement.
+- Les synchronisations générales restent désactivées.
+- Les boutons et calculs du navigateur ne constituent pas une autorisation serveur.
 
-## Diagnostic à exécuter
+## Action à faire : un diagnostic unique, sans modification
 
-1. Ouvrir le projet Supabase de TEST, puis SQL Editor.
-2. Ouvrir le fichier [diagnostic-ventes-securite.sql](./diagnostic-ventes-securite.sql) et exécuter son contenu.
-3. Ouvrir le fichier [diagnostic-ventes-stockage.sql](./diagnostic-ventes-stockage.sql) et exécuter son contenu.
-4. Copier les résultats des deux exécutions dans la conversation, ou joindre des captures lisibles.
+1. Ouvrir le projet Supabase de TEST, puis **SQL Editor**.
+2. Ouvrir le fichier [diagnostic-securite-complet.sql](./diagnostic-securite-complet.sql).
+3. Copier tout le contenu dans SQL Editor et l'exécuter.
+4. Partager ici les résultats des neuf sections, en texte ou en captures lisibles.
 
-Ces deux scripts sont en lecture seule : ils interrogent les métadonnées des tables, politiques, fonctions, privilèges, types et bucket. Ils ne créent, ne modifient et ne suppriment rien.
+Le script ne lit aucune vente individuelle, aucun justificatif, aucun e-mail et aucun identifiant personnel. Il consulte les métadonnées de la base et compte les membres par rôle/statut. Il ne crée, ne modifie et ne supprime rien.
 
-Ne transmettre aucun mot de passe, jeton, clé privée, adresse e-mail, contenu de justificatif ou donnée personnelle. Les résultats demandés portent sur la structure et les règles d'accès, pas sur les ventes individuelles.
+**Ne partage aucun mot de passe, jeton, clé Supabase, adresse e-mail, identifiant utilisateur ni justificatif.**
 
-## Ce qui sera vérifié
+## Ce que les résultats permettront de confirmer
 
-- Structure réelle de `farm_sales`, `farm_members` et `farm_records`.
-- RLS activé et politiques réellement présentes.
-- Rôle actif et fonctions de contrôle existantes.
-- Existence du bucket privé `farm-private-proofs`.
-- Politiques de lecture et d'ajout des justificatifs.
-- Fonctions d'approbation ou d'audit déjà présentes, et leurs privilèges d'exécution.
-- Triggers et types de statut déjà définis.
+- Les colonnes et contraintes réellement présentes dans `farm_sales`, `farm_members` et `audit_events`.
+- Les politiques RLS et les droits SQL déjà configurés.
+- Les protections empêchant un membre de s'attribuer le rôle administrateur.
+- L'existence éventuelle d'une fonction serveur d'approbation.
+- Les règles du bucket privé des justificatifs.
+- La migration à adapter au schéma existant, sans créer une deuxième source de ventes.
 
-## Règles fonctionnelles à appliquer
+## Règles de sécurité visées
 
-| Action | Administrateur | Secrétariat | Responsable |
-|---|---:|---:|---:|
-| Consulter les ventes autorisées | Oui | À confirmer | À confirmer |
-| Saisir une vente | Oui | À confirmer | À confirmer |
-| Approuver ou refuser une vente | Oui | Non | Non |
-| Consulter les justificatifs | Oui | Oui | Oui |
-| Ajouter/remplacer/supprimer un justificatif | Oui | Non | Non |
+- Une vente est créée en attente côté serveur.
+- Seul un administrateur actif peut approuver ou refuser.
+- L'approbateur et la date de décision sont inscrits côté serveur.
+- Les clients ne peuvent pas modifier directement le statut d'approbation.
+- Le secrétariat et le responsable ne peuvent pas approuver, modifier ou supprimer une vente validée.
+- Les justificatifs restent privés ; les trois rôles autorisés peuvent les consulter, tandis que les modifications restent réservées à l'administrateur.
+- Les permissions sont appliquées par RLS et fonctions PostgreSQL, pas par de simples contrôles d'interface.
 
-La consultation des justificatifs par les trois rôles est une exigence déjà exprimée. Les autres droits marqués « À confirmer » ne seront pas inventés.
+## Après le diagnostic
 
-## Après réception des résultats
+Je comparerai les résultats au code et préparerai une migration SQL ciblée, documentée et réversible autant que possible. Elle restera non exécutée tant que le schéma et les politiques ne seront pas confirmés.
 
-1. Comparer le schéma réel avec les tables déjà utilisées pour éviter les doublons.
-2. Écrire une migration adaptée aux colonnes et contraintes constatées.
-3. Prévoir une fonction serveur qui vérifie l'appartenance active à la ferme et le rôle administrateur, puis inscrit l'approbateur et l'horodatage dans le journal.
-4. Verrouiller les mises à jour directes du statut par les clients et appliquer les politiques RLS correspondantes.
-5. Tester avec trois comptes fictifs (admin, secrétariat, responsable), puis vérifier les refus d'accès.
-6. Ne déployer qu'après tests concluants et sauvegarde vérifiée.
-
-## État
-
-- Aucun SQL de migration exécuté.
-- Aucune donnée Supabase modifiée.
-- Aucune activation de l'approbation côté application.
-- Les boutons de synchronisation risquée restent désactivés.
-- Les ventes locales non approuvées ne sont pas comptées dans les recettes validées.
-
-**Important :** ne pas exécuter de script de migration avant lecture des diagnostics. Les noms de colonnes et les rôles réels doivent être confirmés par la base de test.
+Aucun changement de Supabase, de `main`, du site publié, de V12 ou de V24 n'est effectué dans cette étape.
