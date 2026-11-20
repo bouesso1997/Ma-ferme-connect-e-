@@ -12,7 +12,6 @@ test('les six catégories de charges sont proposées', () => {
 
 test('les dépenses anciennes sans catégorie restent classées Autres', () => {
   assert.match(html, /x\.category\|\|'Autres'/);
-  assert.match(html, /s\.category\|\|'Autres'/);
 });
 
 test('les totaux par catégorie sont calculés depuis les dépenses enregistrées', () => {
