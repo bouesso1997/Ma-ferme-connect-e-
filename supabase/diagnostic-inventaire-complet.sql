@@ -109,17 +109,16 @@ where n.nspname = 'public'
   )
 order by c.relname, t.tgname;
 
--- 8) Résumé des volumes par table (nombre de lignes uniquement)
--- Les comptages sont globaux à chaque table ; ils n'affichent aucun contenu métier.
-select 'farm_members' as table_name, count(*) as row_count from public.farm_members
-union all select 'farm_records', count(*) from public.farm_records
-union all select 'farm_animals', count(*) from public.farm_animals
-union all select 'farm_stocks', count(*) from public.farm_stocks
-union all select 'farm_sales', count(*) from public.farm_sales
-union all select 'farm_expenses', count(*) from public.farm_expenses
-union all select 'farm_tasks', count(*) from public.farm_tasks
-union all select 'farm_health', count(*) from public.farm_health
-union all select 'audit_events', count(*) from public.audit_events
-order by table_name;
+-- 8) Estimation des volumes par table (statistiques PostgreSQL, sans lire les lignes)
+-- Une table absente ou jamais analysée peut ne pas apparaître ici.
+select relname as table_name, n_live_tup as estimated_live_rows,
+       n_dead_tup as estimated_dead_rows, last_analyze, last_autoanalyze
+from pg_stat_user_tables
+where schemaname = 'public'
+  and relname in (
+    'farm_members', 'farm_records', 'farm_animals', 'farm_stocks',
+    'farm_sales', 'farm_expenses', 'farm_tasks', 'farm_health', 'audit_events'
+  )
+order by relname;
 
 -- FIN : ce script ne doit produire que des résultats de lecture.
