@@ -88,6 +88,7 @@ select n.nspname as schema_name, p.proname as function_name,
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
+  and p.prokind = 'f'
   and (
     p.proname in ('has_farm_role', 'is_farm_admin', 'is_farm_member')
     or p.proname ilike '%farm%'
