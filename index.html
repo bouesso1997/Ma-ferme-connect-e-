@@ -246,6 +246,23 @@ header:before{display:none!important;content:none!important}
 <div class="card"><h2>Liste du personnel</h2><div class="table-wrap"><table><thead><tr><th>Nom</th><th>Identifiant prévu</th><th>Rôle</th><th>Téléphone</th><th>Statut</th><th>Action</th></tr></thead><tbody id="staffRows"></tbody></table></div></div>
 </section>
 <section id="expenses" class="panel"><div class="card"><h2>Enregistrer une dépense</h2><form id="expenseForm"><div class="grid"><div><label for="expDate">Date</label><input id="expDate" type="date" required></div><div><label for="expCategory">Catégorie de charge</label><select id="expCategory" required><option value="Alimentation">Alimentation</option><option value="Prophylaxie">Prophylaxie</option><option value="Salaires">Salaires</option><option value="Énergie">Énergie</option><option value="Logistique">Logistique</option><option value="Autres">Autres</option></select></div><div><label for="expLabel">Libellé</label><input id="expLabel" required placeholder="Ex. Achat aliment"></div><div><label for="expLot">Lot concerné (facultatif)</label><input id="expLot" maxlength="80" placeholder="Ex. LOT-CROISSANCE-01"></div><div><label for="expAllocation">Répartition si dépense commune</label><select id="expAllocation"><option value="none">Ne pas répartir automatiquement</option><option value="feed">Au prorata des kg d’aliments distribués</option></select></div><div><label for="expAmount">Montant (FCFA)</label><input id="expAmount" type="number" min="1" step="1" required></div></div><button>Enregistrer la dépense</button></form><p class="small">Les dépenses enregistrées ne peuvent pas être supprimées depuis cette interface. Toute correction devra passer par une procédure d’administration sécurisée et traçable côté serveur. Les données de cette copie restent locales.</p><div class="table-wrap"><table><thead><tr><th>Date</th><th>Catégorie</th><th>Libellé</th><th>Montant</th></tr></thead><tbody id="expenseRows"></tbody></table></div><h3>Totaux par catégorie</h3><div class="table-wrap"><table><thead><tr><th>Catégorie</th><th>Total dépensé</th></tr></thead><tbody id="expenseCategoryTotals"><tr><td colspan="2" class="empty">Aucune dépense enregistrée.</td></tr></tbody></table></div>
+<h3>Bilan mensuel et annuel</h3>
+<p class="small">Sélectionnez un mois : le bilan mensuel et le cumul annuel correspondant sont calculés séparément. Seules les ventes approuvées sont comptées comme recettes.</p>
+<div class="grid"><div><label for="financePeriodMonth">Mois à analyser</label><input id="financePeriodMonth" type="month"></div></div>
+<div class="metrics finance-metrics">
+ <div class="metric finance-metric"><span>Recettes du mois</span><strong id="periodMonthRevenue">—</strong></div>
+ <div class="metric finance-metric"><span>Dépenses du mois</span><strong id="periodMonthExpenses">—</strong></div>
+ <div class="metric finance-metric"><span>Solde du mois</span><strong id="periodMonthBalance">—</strong></div>
+ <div class="metric finance-metric"><span>Ventes approuvées du mois</span><strong id="periodMonthSales">0</strong></div>
+</div>
+<div class="metrics finance-metrics">
+ <div class="metric finance-metric"><span>Recettes de l’année</span><strong id="periodYearRevenue">—</strong></div>
+ <div class="metric finance-metric"><span>Dépenses de l’année</span><strong id="periodYearExpenses">—</strong></div>
+ <div class="metric finance-metric"><span>Solde de l’année</span><strong id="periodYearBalance">—</strong></div>
+ <div class="metric finance-metric"><span>Ventes approuvées de l’année</span><strong id="periodYearSales">0</strong></div>
+</div>
+<div class="table-wrap"><table><thead><tr><th>Catégorie de charge</th><th>Mois sélectionné</th><th>Année correspondante</th></tr></thead><tbody id="periodExpenseCategories"><tr><td colspan="3" class="empty">Aucune donnée disponible.</td></tr></tbody></table></div>
+<p class="small" id="financePeriodNote" aria-live="polite"></p>
 <h3>Rentabilité partielle par animal / lot</h3>
 <p class="small">Rapprochement des ventes approuvées et des aliments distribués portant exactement le même identifiant de lot. Le coût alimentaire est estimé au coût moyen d’achat connu. Les salaires, soins, énergie, logistique et autres charges ne sont pas répartis automatiquement : ce résultat n’est donc pas le bénéfice net.</p>
 <div class="table-wrap"><table><thead><tr><th>Animal / lot</th><th>Recettes approuvées</th><th>Aliment distribué</th><th>Coût alimentaire estimé</th><th>Autres charges affectées</th><th>Solde partiel</th><th>État</th></tr></thead><tbody id="lotProfitRows"><tr><td colspan="7" class="empty">Aucune vente approuvée.</td></tr></tbody></table></div>
@@ -407,6 +424,28 @@ function renderLotProfitability(){
  const healthBox=document.getElementById('dashHealthSummary');if(healthBox){const entries=Array.isArray(data.health)?data.health:[];const due=entries.filter(x=>x.next&&x.next<=today()).length;healthBox.textContent=entries.length?`${entries.length} suivi(s) sanitaire(s) enregistré(s). ${due?due+' échéance(s) à vérifier.':'Aucune échéance échue d’après les dates saisies.'}`:'Aucun suivi sanitaire enregistré pour le moment.'}
  const automationBox=document.getElementById('automationTaskSummary');if(automationBox){const tasks=(Array.isArray(data.tasks)?data.tasks:[]).filter(t=>!t.done).sort((a,b)=>String(a.date||'9999').localeCompare(String(b.date||'9999'))).slice(0,5);automationBox.innerHTML=tasks.length?tasks.map(t=>`<div class="dash-row"><div class="dash-row-main"><div class="dash-row-title">${esc(t.title||'Tâche')}</div><div class="dash-row-sub">${esc(t.date||'Sans date')} · ${esc(t.who||'Non attribuée')}</div></div><span class="dash-badge">À suivre</span></div>`).join(''):'<p class="empty">Aucune tâche planifiée pour le moment.</p>'}
 }
+function renderFinancePeriods(){
+ const picker=document.getElementById('financePeriodMonth');if(!picker)return;
+ if(!picker.value){const now=new Date();picker.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');}
+ const month=picker.value,year=month.slice(0,4);
+ if(!/^\d{4}-\d{2}$/.test(month))return;
+ const inMonth=d=>String(d||'').slice(0,7)===month;
+ const inYear=d=>String(d||'').slice(0,4)===year;
+ const approved=(data.sales||[]).filter(x=>x&&x.status==='approved');
+ const monthSales=approved.filter(x=>inMonth(x.date)),yearSales=approved.filter(x=>inYear(x.date));
+ const monthExpenses=(data.expenses||[]).filter(x=>x&&inMonth(x.date)),yearExpenses=(data.expenses||[]).filter(x=>x&&inYear(x.date));
+ const sum=(rows,field)=>rows.reduce((n,x)=>n+safeAmount(x[field]),0);
+ const fmt=n=>n.toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';
+ const put=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
+ const mr=sum(monthSales,'amount'),me=sum(monthExpenses,'amount'),yr=sum(yearSales,'amount'),ye=sum(yearExpenses,'amount');
+ put('periodMonthRevenue',fmt(mr));put('periodMonthExpenses',fmt(me));put('periodMonthBalance',(me>mr?'−':'')+fmt(Math.abs(mr-me)));put('periodMonthSales',monthSales.length);
+ put('periodYearRevenue',fmt(yr));put('periodYearExpenses',fmt(ye));put('periodYearBalance',(ye>yr?'−':'')+fmt(Math.abs(yr-ye)));put('periodYearSales',yearSales.length);
+ const cats=['Alimentation','Prophylaxie','Salaires','Énergie','Logistique','Autres'];
+ const rows=cats.map(c=>{const m=sum(monthExpenses.filter(x=>(x.category||'Autres')===c),'amount'),y=sum(yearExpenses.filter(x=>(x.category||'Autres')===c),'amount');return '<tr><td>'+esc(c)+'</td><td>'+fmt(m)+'</td><td>'+fmt(y)+'</td></tr>'});
+ document.getElementById('periodExpenseCategories').innerHTML=rows.join('');
+ document.getElementById('financePeriodNote').textContent='Période : '+month+' et année '+year+'. Les dépenses sont comptées à leur date d’enregistrement ; les ventes en attente ou refusées sont exclues. Ce bilan est un suivi de trésorerie local et ne remplace pas une comptabilité certifiée.';
+}
+document.getElementById('financePeriodMonth').addEventListener('change',renderFinancePeriods);
 function dashboard(){
  document.getElementById('mAnimals').textContent=data.animals.length;
  let weights=data.animals.reduce((sum,a)=>sum+Number(a.weight||0),0);
@@ -435,6 +474,7 @@ function dashboard(){
  el('mUnallocatedExpenses',fmt(unallocated));
  document.getElementById('profitNote').textContent='Résultat de trésorerie simplifié : ventes approuvées moins toutes les dépenses enregistrées ('+approvedSales.length+' vente(s) approuvée(s)). '+pendingSales.length+' vente(s) en attente et '+rejectedSales.length+' refusée(s) exclues. Les achats d’aliments sont comptés à leur date de paiement ici ; le tableau par lot utilise une estimation des aliments consommés. Ne pas additionner ces deux méthodes. Résultat local indicatif, non certifié.';
  el('financeBreakdownNote').textContent='Dépenses non affectées : '+fmt(unallocated)+'. Elles restent visibles dans les finances globales mais ne sont pas imputées à un lot. Les charges communes réparties sont détaillées dans la rentabilité par lot.';
+ renderFinancePeriods();
  renderV21Widgets();
 }
 function renderHealth(){
