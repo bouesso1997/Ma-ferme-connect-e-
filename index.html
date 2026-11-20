@@ -164,10 +164,12 @@ header:before{display:none!important;content:none!important}
 </div>
 <div class="dashboard-section-heading finance-heading"><div><h2>Finances</h2><p>Chiffres provisoires selon les ventes et dépenses saisies.</p></div><button class="link-button" data-goto="expenses">Ouvrir les finances →</button></div>
 <div class="metrics finance-metrics">
-  <div class="metric finance-metric"><span>Recettes enregistrées</span><strong id="mRevenue">0 FCFA</strong></div>
+  <div class="metric finance-metric"><span>Ventes approuvées</span><strong id="mRevenue">0 FCFA</strong></div>
+  <div class="metric finance-metric"><span>Encaissements connus</span><strong id="mCollected">0 FCFA</strong></div>
   <div class="metric finance-metric"><span>Dépenses enregistrées</span><strong id="mExpenses">0 FCFA</strong></div>
-  <div class="metric finance-metric"><span>Résultat provisoire</span><strong id="mProfit">0 FCFA</strong></div>
-  <div class="metric finance-metric"><span>Marge indicative</span><strong id="mMargin">—</strong></div>
+  <div class="metric finance-metric"><span>Solde de trésorerie indicatif</span><strong id="mProfit">0 FCFA</strong></div>
+  <div class="metric finance-metric"><span>Créances connues</span><strong id="mReceivable">0 FCFA</strong></div>
+  <div class="metric finance-metric"><span>Marges commerciales indicatives</span><strong id="mMargin">—</strong></div>
 </div>
 <div class="dashboard-section-heading"><div><h2>Performances de production</h2><p>Calculées sur les ventes approuvées uniquement.</p></div></div>
 <div class="metrics finance-metrics">
@@ -314,17 +316,18 @@ header:before{display:none!important;content:none!important}
 <p class="small">Sélectionnez un mois : le bilan mensuel et le cumul annuel correspondant sont calculés séparément. Seules les ventes approuvées sont comptées comme recettes.</p>
 <div class="grid"><div><label for="financePeriodMonth">Mois à analyser</label><input id="financePeriodMonth" type="month"></div></div>
 <div class="metrics finance-metrics">
- <div class="metric finance-metric"><span>Recettes du mois</span><strong id="periodMonthRevenue">—</strong></div>
+ <div class="metric finance-metric"><span>Ventes approuvées du mois</span><strong id="periodMonthRevenue">—</strong></div>
+ <div class="metric finance-metric"><span>Encaissements du mois</span><strong id="periodMonthCollected">—</strong></div>
  <div class="metric finance-metric"><span>Dépenses du mois</span><strong id="periodMonthExpenses">—</strong></div>
- <div class="metric finance-metric"><span>Solde du mois</span><strong id="periodMonthBalance">—</strong></div>
- <div class="metric finance-metric"><span>Ventes approuvées du mois</span><strong id="periodMonthSales">0</strong></div>
+ <div class="metric finance-metric"><span>Solde de trésorerie du mois</span><strong id="periodMonthBalance">—</strong></div>
 </div>
 <div class="metrics finance-metrics">
- <div class="metric finance-metric"><span>Recettes de l’année</span><strong id="periodYearRevenue">—</strong></div>
+ <div class="metric finance-metric"><span>Ventes approuvées de l’année</span><strong id="periodYearRevenue">—</strong></div>
+ <div class="metric finance-metric"><span>Encaissements de l’année</span><strong id="periodYearCollected">—</strong></div>
  <div class="metric finance-metric"><span>Dépenses de l’année</span><strong id="periodYearExpenses">—</strong></div>
- <div class="metric finance-metric"><span>Solde de l’année</span><strong id="periodYearBalance">—</strong></div>
- <div class="metric finance-metric"><span>Ventes approuvées de l’année</span><strong id="periodYearSales">0</strong></div>
+ <div class="metric finance-metric"><span>Solde de trésorerie annuel</span><strong id="periodYearBalance">—</strong></div>
 </div>
+<p class="small">Les ventes approuvées mesurent le montant commercial validé. Les encaissements correspondent uniquement aux règlements datés et enregistrés ; les anciennes ventes sans historique de paiements ne sont pas supposées encaissées.</p>
 <div class="table-wrap"><table><thead><tr><th>Catégorie de charge</th><th>Mois sélectionné</th><th>Année correspondante</th></tr></thead><tbody id="periodExpenseCategories"><tr><td colspan="3" class="empty">Aucune donnée disponible.</td></tr></tbody></table></div>
 <p class="small" id="financePeriodNote" aria-live="polite"></p>
 <h3>Rentabilité partielle par animal / lot</h3>
@@ -531,12 +534,15 @@ function renderFinancePeriods(){
  const fmt=n=>n.toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';
  const put=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v};
  const mr=sum(monthSales,'amount'),me=sum(monthExpenses,'amount'),yr=sum(yearSales,'amount'),ye=sum(yearExpenses,'amount');
- put('periodMonthRevenue',fmt(mr));put('periodMonthExpenses',fmt(me));put('periodMonthBalance',(me>mr?'−':'')+fmt(Math.abs(mr-me)));put('periodMonthSales',monthSales.length);
- put('periodYearRevenue',fmt(yr));put('periodYearExpenses',fmt(ye));put('periodYearBalance',(ye>yr?'−':'')+fmt(Math.abs(yr-ye)));put('periodYearSales',yearSales.length);
+ const collected=(rows)=>rows.reduce((n,x)=>n+(Array.isArray(x.payments)?x.payments.filter(p=>String(p.date||'').slice(0,7)===month).reduce((a,p)=>a+safeAmount(p.amount),0):0),0);
+ const collectedYear=(rows)=>rows.reduce((n,x)=>n+(Array.isArray(x.payments)?x.payments.filter(p=>String(p.date||'').slice(0,4)===year).reduce((a,p)=>a+safeAmount(p.amount),0):0),0);
+ const mc=collected(approved),yc=collectedYear(approved);
+ put('periodMonthRevenue',fmt(mr));put('periodMonthCollected',fmt(mc));put('periodMonthExpenses',fmt(me));put('periodMonthBalance',(me>mc?'−':'')+fmt(Math.abs(mc-me)));
+ put('periodYearRevenue',fmt(yr));put('periodYearCollected',fmt(yc));put('periodYearExpenses',fmt(ye));put('periodYearBalance',(ye>yc?'−':'')+fmt(Math.abs(yc-ye)));
  const cats=['Alimentation','Prophylaxie','Salaires','Énergie','Logistique','Autres'];
  const rows=cats.map(c=>{const m=sum(monthExpenses.filter(x=>(x.category||'Autres')===c),'amount'),y=sum(yearExpenses.filter(x=>(x.category||'Autres')===c),'amount');return '<tr><td>'+esc(c)+'</td><td>'+fmt(m)+'</td><td>'+fmt(y)+'</td></tr>'});
  document.getElementById('periodExpenseCategories').innerHTML=rows.join('');
- document.getElementById('financePeriodNote').textContent='Période : '+month+' et année '+year+'. Les dépenses sont comptées à leur date d’enregistrement ; les ventes en attente ou refusées sont exclues. Ce bilan est un suivi de trésorerie local et ne remplace pas une comptabilité certifiée.';
+ document.getElementById('financePeriodNote').textContent='Période : '+month+' et année '+year+'. Ventes approuvées classées par date de vente ; encaissements classés par date réelle du règlement ; dépenses classées par date d’enregistrement. Les ventes en attente ou refusées sont exclues. Les anciennes ventes sans historique de paiements ne sont pas comptées comme encaissées. Suivi local indicatif, non certifié.';
 }
 document.getElementById('financePeriodMonth').addEventListener('change',renderFinancePeriods);
 function dashboard(){
@@ -550,10 +556,15 @@ function dashboard(){
  let rejectedSales=data.sales.filter(x=>x.status==='rejected');
  let approvedSales=data.sales.filter(x=>x.status==='approved');
  let revenue=approvedSales.reduce((sum,x)=>sum+safeAmount(x.amount),0);
+ let collected=approvedSales.reduce((sum,x)=>sum+(Array.isArray(x.payments)?x.payments.reduce((n,p)=>n+safeAmount(p.amount),0):0),0);
+ let receivable=approvedSales.reduce((sum,x)=>sum+(saleBalance(x)===null?0:saleBalance(x)),0);
+ let paymentUnknown=approvedSales.filter(x=>saleBalance(x)===null).length;
  let expenses=data.expenses.reduce((sum,x)=>sum+safeAmount(x.amount),0);
- let profit=revenue-expenses;
+ let profit=collected-expenses;
  let fmt=n=>n.toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';
  document.getElementById('mRevenue').textContent=fmt(revenue);
+ document.getElementById('mCollected').textContent=fmt(collected);
+ document.getElementById('mReceivable').textContent=fmt(receivable);
  document.getElementById('mExpenses').textContent=fmt(expenses);
  document.getElementById('mProfit').textContent=(profit<0?'−':'')+fmt(Math.abs(profit));
  document.getElementById('mProfit').style.color=profit<0?'#9e3030':(profit>0?'#205c43':'inherit');
@@ -565,7 +576,7 @@ function dashboard(){
  const receiptIds=new Set((data.stockMovements||[]).filter(m=>m&&m.type==='entry').flatMap(m=>[m.expenseId,...(data.expenses||[]).filter(e=>m.id&&e.stockMovementId===m.id).map(e=>e.id)]).filter(Boolean));
  const unallocated=(data.expenses||[]).filter(e=>e&&!String(e.lot||'').trim()&&e.allocationMethod!=='feed'&&!receiptIds.has(e.id)).reduce((sum,e)=>sum+safeAmount(e.amount),0);
  el('mUnallocatedExpenses',fmt(unallocated));
- document.getElementById('profitNote').textContent='Résultat de trésorerie simplifié : ventes approuvées moins toutes les dépenses enregistrées ('+approvedSales.length+' vente(s) approuvée(s)). '+pendingSales.length+' vente(s) en attente et '+rejectedSales.length+' refusée(s) exclues. Les achats d’aliments sont comptés à leur date de paiement ici ; le tableau par lot utilise une estimation des aliments consommés. Ne pas additionner ces deux méthodes. Résultat local indicatif, non certifié.';
+ document.getElementById('profitNote').textContent='Solde de trésorerie simplifié : encaissements datés et enregistrés ('+fmt(collected)+') moins toutes les dépenses saisies ('+fmt(expenses)+'). Les ventes approuvées non encore encaissées sont suivies séparément en créances connues ('+fmt(receivable)+'). '+paymentUnknown+' vente(s) approuvée(s) ont un historique de paiement inconnu et sont exclues des encaissements et créances calculables. Les ventes en attente ('+pendingSales.length+') et refusées ('+rejectedSales.length+') sont exclues. Les achats d’aliments sont comptés à leur date de paiement ici ; le tableau par lot utilise une estimation des aliments consommés. Résultat local indicatif, non certifié.';
  el('financeBreakdownNote').textContent='Dépenses non affectées : '+fmt(unallocated)+'. Elles restent visibles dans les finances globales mais ne sont pas imputées à un lot. Les charges communes réparties sont détaillées dans la rentabilité par lot.';
  renderFinancePeriods();
  renderProductionPerformance();
