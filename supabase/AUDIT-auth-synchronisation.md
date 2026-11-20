@@ -35,3 +35,11 @@ Exécuter `diagnostic-ventes-securite.sql` sur le projet Supabase de test et exa
 - Le renouvellement ne change pas lui-même l'époque de session : une actualisation valide ne se fait pas interpréter comme une déconnexion.
 
 Ces contrôles ont été vérifiés par inspection statique du code. Ils n'ont pas encore été validés par des essais navigateur ou par des sessions Supabase réelles. Les opérations de synchronisation générale et Santé restent désactivées.
+
+## Clarification de l'interface — 20 novembre 2026
+
+- Le message après connexion indique désormais explicitement que seule l'authentification administrateur a été vérifiée et qu'aucune synchronisation n'est activée dans cette copie.
+- L'interface précise que l'URL du projet, l'identifiant de ferme et la clé sb_publishable_ ne sont pas des secrets. Les protéger par simple masquage visuel ne sécurise pas le système : les règles RLS et les contrôles côté serveur doivent faire autorité.
+- La clé sb_secret_ ne doit jamais être placée dans le navigateur.
+
+Vérification statique du texte et des messages effectuée. Aucun test réel de connexion ou de synchronisation n'a été exécuté.
