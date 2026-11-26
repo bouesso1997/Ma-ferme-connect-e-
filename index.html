@@ -280,6 +280,15 @@ header:before{display:none!important;content:none!important}
 </div><button type="submit">Enregistrer le porcelet</button></form>
 <div class="table-wrap"><table><thead><tr><th>Identifiant</th><th>Sexe</th><th>Poids naissance</th><th>Poids actuel</th><th>Statut</th></tr></thead><tbody id="reproPigletRows"></tbody></table></div>
 </div>
+<div class="card"><h2>5. Enregistrer une pesée</h2>
+<p class="small">Chaque pesée est conservée dans l'historique. Le poids actuel du porcelet est recalculé automatiquement par Supabase.</p>
+<form id="reproWeightForm"><div class="grid">
+<div><label for="reproWeightPiglet">Porcelet</label><select id="reproWeightPiglet" required><option value="">Chargez les porcelets</option></select></div>
+<div><label for="reproWeightDate">Date de pesée</label><input id="reproWeightDate" type="date" required></div>
+<div><label for="reproWeightKg">Poids (kg)</label><input id="reproWeightKg" type="number" min="0.01" step="0.01" required></div>
+</div><label for="reproWeightNotes">Observations</label><textarea id="reproWeightNotes" rows="2"></textarea><button type="submit">Enregistrer la pesée</button></form>
+<div class="table-wrap"><table><thead><tr><th>Porcelet</th><th>Date</th><th>Poids (kg)</th><th>Observations</th></tr></thead><tbody id="reproWeightRows"></tbody></table></div>
+</div>
 <div class="card"><h2>Alertes de gestation</h2><p class="small">Échéances calculées : J-14, J-7, J-3, J0 et retard. Ces alertes sont affichées dans l'application ; les notifications push sur téléphone restent à développer.</p>
 <div class="table-wrap"><table><thead><tr><th>Truie</th><th>Date prévue</th><th>Échéance</th><th>Jours</th></tr></thead><tbody id="reproAlertRows"></tbody></table></div></div>
 </section>
@@ -513,7 +522,7 @@ document.getElementById('cloudPush').addEventListener('click',()=>{cloudStatus('
 render();calcFeed();
 
 /* Module Reproduction — intégration Supabase additive, branche isolée */
-const reproState={breedings:[],gestations:[],farrowings:[],piglets:[],alerts:[]};
+const reproState={breedings:[],gestations:[],farrowings:[],piglets:[],weights:[],alerts:[]};
 function reproMsg(message,isError=false){const el=document.getElementById('reproStatus');if(el){el.textContent=message;el.style.background=isError?'#fff0f0':'#eff9f2';el.style.borderColor=isError?'#efcaca':'#d9eee0';}}
 function reproDate(v){return v?new Date(v+'T00:00:00').toLocaleDateString('fr-FR'):'—';}
 function reproOpt(id,label){return '<option value="'+esc(id)+'">'+esc(label)+'</option>';}
@@ -522,14 +531,15 @@ async function reproLoad(){
  try{
   reproMsg('Chargement des registres de reproduction…');
   const farm=encodeURIComponent(cloudConfig().farmId);
-  const [b,g,f,p,a]=await Promise.all([
+  const [b,g,f,p,a,w]=await Promise.all([
    sbFetch('/rest/v1/farm_breedings?select=id,sow_code,boar_code,mating_date,status,notes&farm_id=eq.'+farm+'&order=mating_date.desc'),
    sbFetch('/rest/v1/farm_gestations?select=id,breeding_id,confirmation_date,expected_farrowing_date,status,notes&farm_id=eq.'+farm+'&order=expected_farrowing_date.asc'),
    sbFetch('/rest/v1/farm_farrowings?select=id,gestation_id,farrowing_date,total_born,live_born,stillborn,notes&farm_id=eq.'+farm+'&order=farrowing_date.desc'),
    sbFetch('/rest/v1/farm_piglets?select=id,farrowing_id,piglet_code,sex,birth_weight_kg,current_weight_kg,status&farm_id=eq.'+farm+'&order=piglet_code.asc'),
-   sbFetch('/rest/v1/farm_gestation_alerts?select=gestation_id,sow_code,expected_farrowing_date,days_remaining,alert_type&farm_id=eq.'+farm+'&order=expected_farrowing_date.asc')
+   sbFetch('/rest/v1/farm_gestation_alerts?select=gestation_id,sow_code,expected_farrowing_date,days_remaining,alert_type&farm_id=eq.'+farm+'&order=expected_farrowing_date.asc'),
+   sbFetch('/rest/v1/farm_piglet_weights?select=id,piglet_id,weighing_date,weight_kg,notes&farm_id=eq.'+farm+'&order=weighing_date.desc,created_at.desc')
   ]);
-  reproState.breedings=b||[];reproState.gestations=g||[];reproState.farrowings=f||[];reproState.piglets=p||[];reproState.alerts=a||[];
+  reproState.breedings=b||[];reproState.gestations=g||[];reproState.farrowings=f||[];reproState.piglets=p||[];reproState.alerts=a||[];reproState.weights=w||[];
   document.getElementById('reproBreedingCount').textContent=b.length;
   document.getElementById('reproGestationCount').textContent=g.filter(x=>x.status==='ongoing'&&!f.some(y=>y.gestation_id===x.id)).length;
   document.getElementById('reproFarrowingCount').textContent=f.length;
@@ -542,7 +552,9 @@ async function reproLoad(){
   document.getElementById('reproBreedingSelect').innerHTML='<option value="">Choisir une saillie</option>'+b.filter(x=>!g.some(y=>y.breeding_id===x.id)).map(x=>reproOpt(x.id,x.sow_code+' — '+reproDate(x.mating_date))).join('');
   document.getElementById('reproGestationSelect').innerHTML='<option value="">Choisir une gestation</option>'+g.filter(x=>x.status==='ongoing'&&!f.some(y=>y.gestation_id===x.id)).map(x=>{const br=b.find(y=>y.id===x.breeding_id);return reproOpt(x.id,(br?br.sow_code:'Truie')+' — '+reproDate(x.expected_farrowing_date))}).join('');
   document.getElementById('reproFarrowingSelect').innerHTML='<option value="">Choisir une mise bas</option>'+f.map(x=>reproOpt(x.id,reproDate(x.farrowing_date)+' — '+x.live_born+' vivants')).join('');
-  reproMsg('Registres actualisés depuis Supabase. '+b.length+' saillie(s), '+g.length+' gestation(s), '+f.length+' mise(s) bas et '+p.length+' porcelet(s).');
+  document.getElementById('reproWeightPiglet').innerHTML='<option value="">Choisir un porcelet</option>'+p.map(x=>reproOpt(x.id,x.piglet_code)).join('');
+  document.getElementById('reproWeightRows').innerHTML=(w||[]).map(x=>{const pig=p.find(y=>y.id===x.piglet_id);return '<tr><td>'+esc(pig?pig.piglet_code:'—')+'</td><td>'+reproDate(x.weighing_date)+'</td><td>'+esc(x.weight_kg)+'</td><td>'+esc(x.notes||'—')+'</td></tr>'}).join('')||'<tr><td colspan="4">Aucune pesée enregistrée.</td></tr>';
+  reproMsg('Registres actualisés depuis Supabase. '+b.length+' saillie(s), '+g.length+' gestation(s), '+f.length+' mise(s) bas, '+p.length+' porcelet(s) et '+w.length+' pesée(s).');
  }catch(e){reproMsg('Chargement impossible : '+e.message,true);}
 }
 async function reproInsert(table,payload){const farm=cloudConfig().farmId;return sbFetch('/rest/v1/'+table,{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({...payload,farm_id:farm,created_by:cloudSession.user.id})});}
@@ -552,6 +564,8 @@ document.getElementById('reproBreedingForm').addEventListener('submit',async e=>
 document.getElementById('reproGestationForm').addEventListener('submit',async e=>{e.preventDefault();try{await reproInsert('farm_gestations',{breeding_id:document.getElementById('reproBreedingSelect').value,confirmation_date:document.getElementById('reproConfirmationDate').value||null,status:document.getElementById('reproGestationStatus').value,notes:document.getElementById('reproGestationNotes').value.trim()||null});e.target.reset();reproMsg('Gestation créée. La date prévue est calculée automatiquement par Supabase.');await reproLoad();}catch(x){reproMsg('Création impossible : '+x.message,true);}});
 document.getElementById('reproFarrowingForm').addEventListener('submit',async e=>{e.preventDefault();const total=Number(document.getElementById('reproTotalBorn').value),live=Number(document.getElementById('reproLiveBorn').value),still=Number(document.getElementById('reproStillborn').value);if(live+still>total){reproMsg('Les nés vivants et mort-nés ne peuvent pas dépasser le total né.',true);return;}try{await reproInsert('farm_farrowings',{gestation_id:document.getElementById('reproGestationSelect').value,farrowing_date:document.getElementById('reproFarrowingDate').value,total_born:total,live_born:live,stillborn:still,notes:document.getElementById('reproFarrowingNotes').value.trim()||null});e.target.reset();reproMsg('Mise bas enregistrée.');await reproLoad();}catch(x){reproMsg('Enregistrement impossible : '+x.message,true);}});
 document.getElementById('reproPigletForm').addEventListener('submit',async e=>{e.preventDefault();const bw=document.getElementById('reproBirthWeight').value,cw=document.getElementById('reproCurrentWeight').value;try{await reproInsert('farm_piglets',{farrowing_id:document.getElementById('reproFarrowingSelect').value,piglet_code:document.getElementById('reproPigletCode').value.trim(),sex:document.getElementById('reproPigletSex').value||null,birth_weight_kg:bw===''?null:Number(bw),current_weight_kg:cw===''?null:Number(cw),status:'nursing'});e.target.reset();reproMsg('Porcelet enregistré.');await reproLoad();}catch(x){reproMsg('Enregistrement impossible : '+x.message,true);}});
+document.getElementById('reproWeightDate').value=today();
+document.getElementById('reproWeightForm').addEventListener('submit',async e=>{e.preventDefault();try{await reproInsert('farm_piglet_weights',{piglet_id:document.getElementById('reproWeightPiglet').value,weighing_date:document.getElementById('reproWeightDate').value,weight_kg:Number(document.getElementById('reproWeightKg').value),notes:document.getElementById('reproWeightNotes').value.trim()||null});e.target.reset();document.getElementById('reproWeightDate').value=today();reproMsg('Pesée enregistrée. Le poids actuel sera actualisé automatiquement.');await reproLoad();}catch(x){reproMsg('Enregistrement de la pesée impossible : '+x.message,true);}});
 
 </script>
 </body></html>
