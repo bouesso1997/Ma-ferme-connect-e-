@@ -309,6 +309,7 @@ header:before{display:none!important;content:none!important}
 </div>
 <label for="reproHealthDescription">Observations</label><textarea id="reproHealthDescription" rows="2" placeholder="Constat, intervention ou suivi effectué"></textarea>
 <button type="submit">Enregistrer le suivi sanitaire</button></form>
+<div id="reproHealthAlerts" class="notice" style="margin-top:12px">Les rappels sanitaires apparaîtront ici après chargement des données.</div>
 <h3>Historique sanitaire des porcelets</h3>
 <div class="table-wrap"><table><thead><tr><th>Porcelet</th><th>Date</th><th>Type</th><th>Détail</th><th>Rappel</th></tr></thead><tbody id="reproHealthRows"></tbody></table></div>
 </div>
@@ -608,6 +609,9 @@ async function reproLoad(){
   const pigletCodes=new Set(p.map(x=>x.piglet_code));
   const pigletHealth=(h||[]).filter(x=>pigletCodes.has(x.animal_code));
   document.getElementById('reproHealthRows').innerHTML=pigletHealth.map(x=>'<tr><td>'+esc(x.animal_code)+'</td><td>'+reproDate(x.event_date)+'</td><td>'+esc(x.event_type||'—')+'</td><td>'+esc(x.treatment||x.medication||x.description||'—')+'</td><td>'+reproDate(x.next_due_date)+'</td></tr>').join('')||'<tr><td colspan="5">Aucun suivi sanitaire enregistré pour les porcelets.</td></tr>';
+  const todayKey=new Date().toISOString().slice(0,10),limitKey=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
+  const dueHealth=pigletHealth.filter(x=>x.next_due_date&&x.next_due_date<=limitKey).sort((x,y)=>x.next_due_date.localeCompare(y.next_due_date));
+  document.getElementById('reproHealthAlerts').innerHTML=dueHealth.map(x=>'<div><strong>'+(x.next_due_date<todayKey?'Rappel en retard':'Rappel à venir')+'</strong> — '+esc(x.animal_code)+' : '+reproDate(x.next_due_date)+'</div>').join('')||'Aucun rappel sanitaire prévu dans les 14 prochains jours.';
   document.getElementById('reproBreedingSelect').innerHTML='<option value="">Choisir une saillie</option>'+b.filter(x=>!g.some(y=>y.breeding_id===x.id)).map(x=>reproOpt(x.id,x.sow_code+' — '+reproDate(x.mating_date))).join('');
   document.getElementById('reproGestationSelect').innerHTML='<option value="">Choisir une gestation</option>'+g.filter(x=>x.status==='ongoing'&&!f.some(y=>y.gestation_id===x.id)).map(x=>{const br=b.find(y=>y.id===x.breeding_id);return reproOpt(x.id,(br?br.sow_code:'Truie')+' — '+reproDate(x.expected_farrowing_date))}).join('');
   document.getElementById('reproFarrowingSelect').innerHTML='<option value="">Choisir une mise bas</option>'+f.map(x=>reproOpt(x.id,reproDate(x.farrowing_date)+' — '+x.live_born+' vivants')).join('');
