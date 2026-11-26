@@ -297,10 +297,10 @@ header:before{display:none!important;content:none!important}
 <div id="reproGrowthSummary" class="grid" style="margin:12px 0"></div>
 <div id="reproGrowthChart" role="img" aria-label="Courbe de croissance du porcelet sélectionné" style="width:100%;min-height:180px;overflow:hidden"></div>
 </div>
-<div class="card"><h2>7. Suivi sanitaire des porcelets</h2>
-<p class="small">Les événements sont enregistrés dans le registre sanitaire de la ferme et rattachés au code individuel du porcelet.</p>
+<div class="card"><h2>7. Dossier sanitaire de chaque animal</h2>
+<p class="small">Enregistrez vaccinations, traitements, observations et rappels pour les porcs adultes comme pour les porcelets. Chaque événement est rattaché au code individuel de l’animal.</p>
 <form id="reproHealthForm"><div class="grid">
-<div><label for="reproHealthPiglet">Porcelet</label><select id="reproHealthPiglet" required><option value="">Chargez les porcelets</option></select></div>
+<div><label for="reproHealthPiglet">Animal concerné</label><select id="reproHealthPiglet" required><option value="">Chargez les animaux</option></select></div>
 <div><label for="reproHealthDate">Date de l'événement</label><input id="reproHealthDate" type="date" required></div>
 <div><label for="reproHealthType">Type</label><select id="reproHealthType"><option value="vaccination">Vaccination</option><option value="traitement">Traitement</option><option value="observation">Observation sanitaire</option><option value="rappel">Rappel</option><option value="autre">Autre</option></select></div>
 <div><label for="reproHealthNext">Date du prochain rappel</label><input id="reproHealthNext" type="date"></div>
@@ -311,7 +311,8 @@ header:before{display:none!important;content:none!important}
 <label for="reproHealthDescription">Observations</label><textarea id="reproHealthDescription" rows="2" placeholder="Constat, intervention ou suivi effectué"></textarea>
 <button type="submit">Enregistrer le suivi sanitaire</button></form>
 <div id="reproHealthAlerts" class="notice" style="margin-top:12px">Les rappels sanitaires apparaîtront ici après chargement des données.</div>
-<h3>Historique sanitaire des porcelets</h3>
+<h3>Historique sanitaire de l’animal sélectionné</h3>
+<label for="reproHealthFilter">Afficher le dossier de</label><select id="reproHealthFilter"><option value="">Tous les animaux</option></select>
 <div class="table-wrap"><table><thead><tr><th>Porcelet</th><th>Date</th><th>Type</th><th>Produit / intervention</th><th>Dosage</th><th>Observations</th><th>Rappel</th></tr></thead><tbody id="reproHealthRows"></tbody></table></div>
 </div>
 <div class="card"><h2>Alertes de gestation</h2><p class="small">Échéances calculées : J-14, J-7, J-3, J0 et retard. Ces alertes sont affichées dans l'application ; les notifications push sur téléphone restent à développer.</p>
@@ -547,7 +548,7 @@ document.getElementById('cloudPush').addEventListener('click',()=>{cloudStatus('
 render();calcFeed();
 
 /* Module Reproduction — intégration Supabase additive, branche isolée */
-const reproState={breedings:[],gestations:[],farrowings:[],piglets:[],weights:[],alerts:[],health:[]};
+const reproState={breedings:[],gestations:[],farrowings:[],piglets:[],animals:[],weights:[],alerts:[],health:[]};
 function reproMsg(message,isError=false){const el=document.getElementById('reproStatus');if(el){el.textContent=message;el.style.background=isError?'#fff0f0':'#eff9f2';el.style.borderColor=isError?'#efcaca':'#d9eee0';}}
 function reproDate(v){return v?new Date(v+'T00:00:00').toLocaleDateString('fr-FR'):'—';}
 function reproOpt(id,label){return '<option value="'+esc(id)+'">'+esc(label)+'</option>';}
@@ -588,16 +589,17 @@ async function reproLoad(){
  try{
   reproMsg('Chargement des registres de reproduction…');
   const farm=encodeURIComponent(cloudConfig().farmId);
-  const [b,g,f,p,a,w,h]=await Promise.all([
+  const [b,g,f,p,a,w,h,animals]=await Promise.all([
    sbFetch('/rest/v1/farm_breedings?select=id,sow_code,boar_code,mating_date,status,notes&farm_id=eq.'+farm+'&order=mating_date.desc'),
    sbFetch('/rest/v1/farm_gestations?select=id,breeding_id,confirmation_date,expected_farrowing_date,status,notes&farm_id=eq.'+farm+'&order=expected_farrowing_date.asc'),
    sbFetch('/rest/v1/farm_farrowings?select=id,gestation_id,farrowing_date,total_born,live_born,stillborn,notes&farm_id=eq.'+farm+'&order=farrowing_date.desc'),
    sbFetch('/rest/v1/farm_piglets?select=id,farrowing_id,piglet_code,sex,birth_weight_kg,current_weight_kg,status&farm_id=eq.'+farm+'&order=piglet_code.asc'),
    sbFetch('/rest/v1/farm_gestation_alerts?select=gestation_id,sow_code,expected_farrowing_date,days_remaining,alert_type&farm_id=eq.'+farm+'&order=expected_farrowing_date.asc'),
    sbFetch('/rest/v1/farm_piglet_weights?select=id,piglet_id,weighing_date,weight_kg,notes&farm_id=eq.'+farm+'&order=weighing_date.desc,created_at.desc'),
-   sbFetch('/rest/v1/farm_health?select=id,animal_code,event_date,event_type,description,treatment,medication,dosage,next_due_date&farm_id=eq.'+farm+'&order=event_date.desc')
+   sbFetch('/rest/v1/farm_health?select=id,animal_code,event_date,event_type,description,treatment,medication,dosage,next_due_date&farm_id=eq.'+farm+'&order=event_date.desc'),
+   sbFetch('/rest/v1/farm_animals?select=animal_code,category&farm_id=eq.'+farm+'&order=animal_code.asc')
   ]);
-  reproState.breedings=b||[];reproState.gestations=g||[];reproState.farrowings=f||[];reproState.piglets=p||[];reproState.alerts=a||[];reproState.weights=w||[];reproState.health=h||[];
+  reproState.breedings=b||[];reproState.gestations=g||[];reproState.farrowings=f||[];reproState.piglets=p||[];reproState.animals=animals||[];reproState.alerts=a||[];reproState.weights=w||[];reproState.health=h||[];
   document.getElementById('reproBreedingCount').textContent=b.length;
   document.getElementById('reproGestationCount').textContent=g.filter(x=>x.status==='ongoing'&&!f.some(y=>y.gestation_id===x.id)).length;
   document.getElementById('reproFarrowingCount').textContent=f.length;
@@ -607,18 +609,22 @@ async function reproLoad(){
   document.getElementById('reproFarrowingRows').innerHTML=f.map(x=>'<tr><td>'+reproDate(x.farrowing_date)+'</td><td>'+x.total_born+'</td><td>'+x.live_born+'</td><td>'+x.stillborn+'</td></tr>').join('')||'<tr><td colspan="4">Aucune mise bas enregistrée.</td></tr>';
   document.getElementById('reproPigletRows').innerHTML=p.map(x=>'<tr><td>'+esc(x.piglet_code)+'</td><td>'+esc(x.sex||'—')+'</td><td>'+esc(x.birth_weight_kg??'—')+'</td><td>'+esc(x.current_weight_kg??'—')+'</td><td>'+esc(x.status)+'</td></tr>').join('')||'<tr><td colspan="5">Aucun porcelet enregistré.</td></tr>';
   document.getElementById('reproAlertRows').innerHTML=a.filter(x=>!f.some(y=>y.gestation_id===x.gestation_id)).map(x=>'<tr><td>'+esc(x.sow_code)+'</td><td>'+reproDate(x.expected_farrowing_date)+'</td><td><strong>'+esc(x.alert_type||(x.days_remaining<0?'RETARD':'À VENIR'))+'</strong></td><td>'+x.days_remaining+'</td></tr>').join('')||'<tr><td colspan="4">Aucune échéance à signaler pour le moment.</td></tr>';
-  const pigletCodes=new Set(p.map(x=>x.piglet_code));
-  const pigletHealth=(h||[]).filter(x=>pigletCodes.has(x.animal_code));
-  document.getElementById('reproHealthRows').innerHTML=pigletHealth.map(x=>'<tr><td>'+esc(x.animal_code)+'</td><td>'+reproDate(x.event_date)+'</td><td>'+esc(x.event_type||'—')+'</td><td>'+esc(x.treatment||x.medication||'—')+'</td><td>'+esc(x.dosage||'—')+'</td><td>'+esc(x.description||'—')+'</td><td>'+reproDate(x.next_due_date)+'</td></tr>').join('')||'<tr><td colspan="7">Aucun suivi sanitaire enregistré pour les porcelets.</td></tr>';
+  const animalCodes=new Set([...(animals||[]).map(x=>x.animal_code),...p.map(x=>x.piglet_code)].filter(Boolean));
+  const animalHealth=(h||[]).filter(x=>animalCodes.has(x.animal_code));
+  const healthFilter=document.getElementById('reproHealthFilter'),previousHealthFilter=healthFilter.value;
+  const animalOptions=[...(animals||[]).map(x=>({code:x.animal_code,label:x.animal_code+' — '+(x.category||'Animal')})),...p.filter(x=>!animalCodes.has(x.piglet_code)||!(animals||[]).some(y=>y.animal_code===x.piglet_code)).map(x=>({code:x.piglet_code,label:x.piglet_code+' — Porcelet'}))];
+  healthFilter.innerHTML='<option value="">Tous les animaux</option>'+animalOptions.map(x=>reproOpt(x.code,x.label)).join('');healthFilter.value=animalOptions.some(x=>x.code===previousHealthFilter)?previousHealthFilter:'';
+  document.getElementById('reproHealthRows').innerHTML=animalHealth.filter(x=>!healthFilter.value||x.animal_code===healthFilter.value).map(x=>'<tr><td>'+esc(x.animal_code)+'</td><td>'+reproDate(x.event_date)+'</td><td>'+esc(x.event_type||'—')+'</td><td>'+esc(x.treatment||x.medication||'—')+'</td><td>'+esc(x.dosage||'—')+'</td><td>'+esc(x.description||'—')+'</td><td>'+reproDate(x.next_due_date)+'</td></tr>').join('')||'<tr><td colspan="7">Aucun suivi sanitaire enregistré pour cette sélection.</td></tr>';
   const todayKey=new Date().toISOString().slice(0,10),limitKey=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
-  const dueHealth=pigletHealth.filter(x=>x.next_due_date&&x.next_due_date<=limitKey).sort((x,y)=>x.next_due_date.localeCompare(y.next_due_date));
+  const dueHealth=animalHealth.filter(x=>x.next_due_date&&x.next_due_date<=limitKey).sort((x,y)=>x.next_due_date.localeCompare(y.next_due_date));
   document.getElementById('reproHealthAlerts').innerHTML=dueHealth.map(x=>'<div><strong>'+(x.next_due_date<todayKey?'Rappel en retard':'Rappel à venir')+'</strong> — '+esc(x.animal_code)+' : '+reproDate(x.next_due_date)+'</div>').join('')||'Aucun rappel sanitaire prévu dans les 14 prochains jours.';
   renderReproHealthDashboard();
   document.getElementById('reproBreedingSelect').innerHTML='<option value="">Choisir une saillie</option>'+b.filter(x=>!g.some(y=>y.breeding_id===x.id)).map(x=>reproOpt(x.id,x.sow_code+' — '+reproDate(x.mating_date))).join('');
   document.getElementById('reproGestationSelect').innerHTML='<option value="">Choisir une gestation</option>'+g.filter(x=>x.status==='ongoing'&&!f.some(y=>y.gestation_id===x.id)).map(x=>{const br=b.find(y=>y.id===x.breeding_id);return reproOpt(x.id,(br?br.sow_code:'Truie')+' — '+reproDate(x.expected_farrowing_date))}).join('');
   document.getElementById('reproFarrowingSelect').innerHTML='<option value="">Choisir une mise bas</option>'+f.map(x=>reproOpt(x.id,reproDate(x.farrowing_date)+' — '+x.live_born+' vivants')).join('');
   document.getElementById('reproWeightPiglet').innerHTML='<option value="">Choisir un porcelet</option>'+p.map(x=>reproOpt(x.id,x.piglet_code)).join('');
-  document.getElementById('reproHealthPiglet').innerHTML='<option value="">Choisir un porcelet</option>'+p.map(x=>reproOpt(x.piglet_code,x.piglet_code+' — '+(x.current_weight_kg||x.birth_weight_kg||'—')+' kg')).join('');
+  const healthAnimalOptions=[...(animals||[]).map(x=>reproOpt(x.animal_code,x.animal_code+' — '+(x.category||'Animal'))),...p.filter(x=>!(animals||[]).some(y=>y.animal_code===x.piglet_code)).map(x=>reproOpt(x.piglet_code,x.piglet_code+' — Porcelet'))];
+  document.getElementById('reproHealthPiglet').innerHTML='<option value="">Choisir un animal</option>'+healthAnimalOptions.join('');
   const growthSelect=document.getElementById('reproGrowthPiglet'),previousGrowth=growthSelect.value;
   growthSelect.innerHTML='<option value="">Choisir un porcelet</option>'+p.map(x=>reproOpt(x.id,x.piglet_code)).join('');
   growthSelect.value=p.some(x=>x.id===previousGrowth)?previousGrowth:(p[0]?p[0].id:'');
@@ -630,12 +636,13 @@ async function reproLoad(){
 function renderReproHealthDashboard(){
  const box=document.getElementById('dashReproHealth');if(!box)return;
  if(!cloudSession){box.innerHTML='<p class="empty">Connectez-vous à Supabase pour afficher les rappels enregistrés sur le serveur.</p>';return;}
- const pigletCodes=new Set(reproState.piglets.map(x=>x.piglet_code));
+ const knownCodes=new Set([...reproState.animals.map(x=>x.animal_code),...reproState.piglets.map(x=>x.piglet_code)]);
  const todayKey=new Date().toISOString().slice(0,10),limitKey=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
- const due=reproState.health.filter(x=>pigletCodes.has(x.animal_code)&&x.next_due_date&&x.next_due_date<=limitKey).sort((a,b)=>a.next_due_date.localeCompare(b.next_due_date));
+ const due=reproState.health.filter(x=>knownCodes.has(x.animal_code)&&x.next_due_date&&x.next_due_date<=limitKey).sort((a,b)=>a.next_due_date.localeCompare(b.next_due_date));
  box.innerHTML=due.length?due.slice(0,6).map(x=>'<div class="dash-row"><div class="dash-row-main"><div class="dash-row-title">'+esc(x.animal_code)+' · '+esc(x.event_type||'Suivi sanitaire')+'</div><div class="dash-row-sub">'+(x.next_due_date<todayKey?'En retard':'À venir')+' · '+reproDate(x.next_due_date)+'</div></div><span class="dash-badge">'+(x.next_due_date<todayKey?'En retard':'Rappel')+'</span></div>').join(''):'<p class="empty">Aucun rappel sanitaire en retard ou prévu dans les 14 prochains jours.</p>';
 }
 async function reproInsert(table,payload){const farm=cloudConfig().farmId;return sbFetch('/rest/v1/'+table,{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({...payload,farm_id:farm,created_by:cloudSession.user.id})});}
+document.getElementById('reproHealthFilter').addEventListener('change',()=>{const selected=document.getElementById('reproHealthFilter').value;const rows=reproState.health.filter(x=>!selected||x.animal_code===selected);document.getElementById('reproHealthRows').innerHTML=rows.map(x=>'<tr><td>'+esc(x.animal_code)+'</td><td>'+reproDate(x.event_date)+'</td><td>'+esc(x.event_type||'—')+'</td><td>'+esc(x.treatment||x.medication||'—')+'</td><td>'+esc(x.dosage||'—')+'</td><td>'+esc(x.description||'—')+'</td><td>'+reproDate(x.next_due_date)+'</td></tr>').join('')||'<tr><td colspan="7">Aucun suivi sanitaire enregistré pour cette sélection.</td></tr>';});
 document.getElementById('reproRefresh').addEventListener('click',reproLoad);
 document.getElementById('reproHealthForm').addEventListener('submit',async e=>{e.preventDefault();try{await reproInsert('farm_health',{animal_code:document.getElementById('reproHealthPiglet').value,event_date:document.getElementById('reproHealthDate').value,event_type:document.getElementById('reproHealthType').value,description:document.getElementById('reproHealthDescription').value.trim()||null,treatment:document.getElementById('reproHealthMedication').value.trim()||null,medication:document.getElementById('reproHealthMedication').value.trim()||null,dosage:document.getElementById('reproHealthDosage').value.trim()||null,next_due_date:document.getElementById('reproHealthNext').value||null});e.target.reset();reproMsg('Suivi sanitaire enregistré.');await reproLoad();}catch(x){reproMsg('Enregistrement sanitaire impossible : '+x.message,true);}});
 
