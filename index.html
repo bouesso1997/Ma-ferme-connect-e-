@@ -311,7 +311,7 @@ header:before{display:none!important;content:none!important}
 <button type="submit">Enregistrer le suivi sanitaire</button></form>
 <div id="reproHealthAlerts" class="notice" style="margin-top:12px">Les rappels sanitaires apparaîtront ici après chargement des données.</div>
 <h3>Historique sanitaire des porcelets</h3>
-<div class="table-wrap"><table><thead><tr><th>Porcelet</th><th>Date</th><th>Type</th><th>Détail</th><th>Rappel</th></tr></thead><tbody id="reproHealthRows"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Porcelet</th><th>Date</th><th>Type</th><th>Produit / intervention</th><th>Dosage</th><th>Observations</th><th>Rappel</th></tr></thead><tbody id="reproHealthRows"></tbody></table></div>
 </div>
 <div class="card"><h2>Alertes de gestation</h2><p class="small">Échéances calculées : J-14, J-7, J-3, J0 et retard. Ces alertes sont affichées dans l'application ; les notifications push sur téléphone restent à développer.</p>
 <div class="table-wrap"><table><thead><tr><th>Truie</th><th>Date prévue</th><th>Échéance</th><th>Jours</th></tr></thead><tbody id="reproAlertRows"></tbody></table></div></div>
@@ -608,7 +608,7 @@ async function reproLoad(){
   document.getElementById('reproAlertRows').innerHTML=a.filter(x=>!f.some(y=>y.gestation_id===x.gestation_id)).map(x=>'<tr><td>'+esc(x.sow_code)+'</td><td>'+reproDate(x.expected_farrowing_date)+'</td><td><strong>'+esc(x.alert_type||(x.days_remaining<0?'RETARD':'À VENIR'))+'</strong></td><td>'+x.days_remaining+'</td></tr>').join('')||'<tr><td colspan="4">Aucune échéance à signaler pour le moment.</td></tr>';
   const pigletCodes=new Set(p.map(x=>x.piglet_code));
   const pigletHealth=(h||[]).filter(x=>pigletCodes.has(x.animal_code));
-  document.getElementById('reproHealthRows').innerHTML=pigletHealth.map(x=>'<tr><td>'+esc(x.animal_code)+'</td><td>'+reproDate(x.event_date)+'</td><td>'+esc(x.event_type||'—')+'</td><td>'+esc(x.treatment||x.medication||x.description||'—')+'</td><td>'+reproDate(x.next_due_date)+'</td></tr>').join('')||'<tr><td colspan="5">Aucun suivi sanitaire enregistré pour les porcelets.</td></tr>';
+  document.getElementById('reproHealthRows').innerHTML=pigletHealth.map(x=>'<tr><td>'+esc(x.animal_code)+'</td><td>'+reproDate(x.event_date)+'</td><td>'+esc(x.event_type||'—')+'</td><td>'+esc(x.treatment||x.medication||'—')+'</td><td>'+esc(x.dosage||'—')+'</td><td>'+esc(x.description||'—')+'</td><td>'+reproDate(x.next_due_date)+'</td></tr>').join('')||'<tr><td colspan="7">Aucun suivi sanitaire enregistré pour les porcelets.</td></tr>';
   const todayKey=new Date().toISOString().slice(0,10),limitKey=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
   const dueHealth=pigletHealth.filter(x=>x.next_due_date&&x.next_due_date<=limitKey).sort((x,y)=>x.next_due_date.localeCompare(y.next_due_date));
   document.getElementById('reproHealthAlerts').innerHTML=dueHealth.map(x=>'<div><strong>'+(x.next_due_date<todayKey?'Rappel en retard':'Rappel à venir')+'</strong> — '+esc(x.animal_code)+' : '+reproDate(x.next_due_date)+'</div>').join('')||'Aucun rappel sanitaire prévu dans les 14 prochains jours.';
