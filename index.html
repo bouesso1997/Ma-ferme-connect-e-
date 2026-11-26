@@ -289,6 +289,13 @@ header:before{display:none!important;content:none!important}
 </div><label for="reproWeightNotes">Observations</label><textarea id="reproWeightNotes" rows="2"></textarea><button type="submit">Enregistrer la pesée</button></form>
 <div class="table-wrap"><table><thead><tr><th>Porcelet</th><th>Date</th><th>Poids (kg)</th><th>Observations</th></tr></thead><tbody id="reproWeightRows"></tbody></table></div>
 </div>
+<div class="card"><h2>6. Courbe de croissance individuelle</h2>
+<p class="small">Sélectionnez un porcelet pour afficher uniquement ses pesées enregistrées. La courbe ne crée aucune valeur estimée.</p>
+<label for="reproGrowthPiglet">Porcelet à suivre</label>
+<select id="reproGrowthPiglet"><option value="">Chargez les porcelets</option></select>
+<div id="reproGrowthSummary" class="grid" style="margin:12px 0"></div>
+<div id="reproGrowthChart" role="img" aria-label="Courbe de croissance du porcelet sélectionné" style="width:100%;min-height:180px;overflow:hidden"></div>
+</div>
 <div class="card"><h2>Alertes de gestation</h2><p class="small">Échéances calculées : J-14, J-7, J-3, J0 et retard. Ces alertes sont affichées dans l'application ; les notifications push sur téléphone restent à développer.</p>
 <div class="table-wrap"><table><thead><tr><th>Truie</th><th>Date prévue</th><th>Échéance</th><th>Jours</th></tr></thead><tbody id="reproAlertRows"></tbody></table></div></div>
 </section>
@@ -526,6 +533,38 @@ const reproState={breedings:[],gestations:[],farrowings:[],piglets:[],weights:[]
 function reproMsg(message,isError=false){const el=document.getElementById('reproStatus');if(el){el.textContent=message;el.style.background=isError?'#fff0f0':'#eff9f2';el.style.borderColor=isError?'#efcaca':'#d9eee0';}}
 function reproDate(v){return v?new Date(v+'T00:00:00').toLocaleDateString('fr-FR'):'—';}
 function reproOpt(id,label){return '<option value="'+esc(id)+'">'+esc(label)+'</option>';}
+function renderPigletGrowth(){
+ const select=document.getElementById('reproGrowthPiglet');
+ const summary=document.getElementById('reproGrowthSummary');
+ const chart=document.getElementById('reproGrowthChart');
+ if(!select||!summary||!chart)return;
+ const pig=reproState.piglets.find(x=>x.id===select.value);
+ if(!pig){summary.innerHTML='';chart.innerHTML='<p class="small">Aucun porcelet sélectionné.</p>';return;}
+ const points=reproState.weights.filter(x=>x.piglet_id===pig.id&&Number(x.weight_kg)>0)
+  .sort((a,b)=>a.weighing_date.localeCompare(b.weighing_date)||String(a.created_at||'').localeCompare(String(b.created_at||'')));
+ const first=points[0],last=points[points.length-1];
+ const gain=first&&last?Number(last.weight_kg)-Number(first.weight_kg):null;
+ const days=first&&last?(new Date(last.weighing_date+'T00:00:00')-new Date(first.weighing_date+'T00:00:00'))/86400000:0;
+ const avg=days>0&&gain!==null?gain/days:null;
+ const metric=(label,value)=>'<div class="stat"><span class="small">'+label+'</span><strong>'+value+'</strong></div>';
+ summary.innerHTML=metric('Poids actuel',pig.current_weight_kg==null?'—':Number(pig.current_weight_kg).toFixed(2)+' kg')
+  +metric('Pesées enregistrées',String(points.length))
+  +metric('Évolution mesurée',gain===null?'—':(gain>=0?'+':'')+gain.toFixed(2)+' kg')
+  +metric('Gain moyen / jour',avg===null?'—':(avg>=0?'+':'')+avg.toFixed(3)+' kg');
+ if(!points.length){chart.innerHTML='<p class="small">Aucune pesée disponible pour ce porcelet. Enregistrez une pesée pour commencer sa courbe.</p>';return;}
+ if(points.length===1){chart.innerHTML='<p class="small">Une seule pesée : '+reproDate(first.weighing_date)+' — '+Number(first.weight_kg).toFixed(2)+' kg. Une deuxième pesée permettra de tracer son évolution.</p>';return;}
+ const W=760,H=300,L=62,R=22,T=20,B=54;
+ const values=points.map(x=>Number(x.weight_kg));
+ const min=Math.max(0,Math.floor(Math.min(...values)*0.9/5)*5);
+ const max=Math.max(min+5,Math.ceil(Math.max(...values)*1.1/5)*5);
+ const x=i=>L+i*(W-L-R)/(points.length-1);
+ const y=v=>T+(max-v)*(H-T-B)/(max-min);
+ const coords=points.map((p,i)=>x(i).toFixed(1)+','+y(Number(p.weight_kg)).toFixed(1)).join(' ');
+ const ticks=5,grid=Array.from({length:ticks+1},(_,i)=>{const v=min+(max-min)*i/ticks,yy=y(v);return '<line x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'" stroke="#dce8e1" stroke-width="1"/><text x="'+(L-10)+'" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#60776d">'+v.toFixed(0)+'</text>';}).join('');
+ const dots=points.map((p,i)=>'<circle cx="'+x(i)+'" cy="'+y(Number(p.weight_kg))+'" r="5" fill="#087f5b"><title>'+reproDate(p.weighing_date)+' : '+Number(p.weight_kg).toFixed(2)+' kg</title></circle>').join('');
+ const labels=[points[0],points[points.length-1]].map((p,i)=>'<text x="'+(i===0?L:W-R)+'" y="'+(H-20)+'" text-anchor="'+(i===0?'start':'end')+'" font-size="11" fill="#60776d">'+reproDate(p.weighing_date)+'</text>').join('');
+ chart.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Évolution du poids de '+esc(pig.piglet_code)+'"><text x="'+L+'" y="13" font-size="11" fill="#60776d">Poids (kg)</text>'+grid+'<polyline points="'+coords+'" fill="none" stroke="#087f5b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+dots+labels+'</svg>';
+}
 async function reproLoad(){
  if(!cloudSession){reproMsg('Connexion Supabase requise. Connectez-vous avec le compte administrateur dans Paramètres.',true);return;}
  try{
@@ -553,6 +592,10 @@ async function reproLoad(){
   document.getElementById('reproGestationSelect').innerHTML='<option value="">Choisir une gestation</option>'+g.filter(x=>x.status==='ongoing'&&!f.some(y=>y.gestation_id===x.id)).map(x=>{const br=b.find(y=>y.id===x.breeding_id);return reproOpt(x.id,(br?br.sow_code:'Truie')+' — '+reproDate(x.expected_farrowing_date))}).join('');
   document.getElementById('reproFarrowingSelect').innerHTML='<option value="">Choisir une mise bas</option>'+f.map(x=>reproOpt(x.id,reproDate(x.farrowing_date)+' — '+x.live_born+' vivants')).join('');
   document.getElementById('reproWeightPiglet').innerHTML='<option value="">Choisir un porcelet</option>'+p.map(x=>reproOpt(x.id,x.piglet_code)).join('');
+  const growthSelect=document.getElementById('reproGrowthPiglet'),previousGrowth=growthSelect.value;
+  growthSelect.innerHTML='<option value="">Choisir un porcelet</option>'+p.map(x=>reproOpt(x.id,x.piglet_code)).join('');
+  growthSelect.value=p.some(x=>x.id===previousGrowth)?previousGrowth:(p[0]?p[0].id:'');
+  renderPigletGrowth();
   document.getElementById('reproWeightRows').innerHTML=(w||[]).map(x=>{const pig=p.find(y=>y.id===x.piglet_id);return '<tr><td>'+esc(pig?pig.piglet_code:'—')+'</td><td>'+reproDate(x.weighing_date)+'</td><td>'+esc(x.weight_kg)+'</td><td>'+esc(x.notes||'—')+'</td></tr>'}).join('')||'<tr><td colspan="4">Aucune pesée enregistrée.</td></tr>';
   reproMsg('Registres actualisés depuis Supabase. '+b.length+' saillie(s), '+g.length+' gestation(s), '+f.length+' mise(s) bas, '+p.length+' porcelet(s) et '+w.length+' pesée(s).');
  }catch(e){reproMsg('Chargement impossible : '+e.message,true);}
@@ -564,6 +607,7 @@ document.getElementById('reproBreedingForm').addEventListener('submit',async e=>
 document.getElementById('reproGestationForm').addEventListener('submit',async e=>{e.preventDefault();try{await reproInsert('farm_gestations',{breeding_id:document.getElementById('reproBreedingSelect').value,confirmation_date:document.getElementById('reproConfirmationDate').value||null,status:document.getElementById('reproGestationStatus').value,notes:document.getElementById('reproGestationNotes').value.trim()||null});e.target.reset();reproMsg('Gestation créée. La date prévue est calculée automatiquement par Supabase.');await reproLoad();}catch(x){reproMsg('Création impossible : '+x.message,true);}});
 document.getElementById('reproFarrowingForm').addEventListener('submit',async e=>{e.preventDefault();const total=Number(document.getElementById('reproTotalBorn').value),live=Number(document.getElementById('reproLiveBorn').value),still=Number(document.getElementById('reproStillborn').value);if(live+still>total){reproMsg('Les nés vivants et mort-nés ne peuvent pas dépasser le total né.',true);return;}try{await reproInsert('farm_farrowings',{gestation_id:document.getElementById('reproGestationSelect').value,farrowing_date:document.getElementById('reproFarrowingDate').value,total_born:total,live_born:live,stillborn:still,notes:document.getElementById('reproFarrowingNotes').value.trim()||null});e.target.reset();reproMsg('Mise bas enregistrée.');await reproLoad();}catch(x){reproMsg('Enregistrement impossible : '+x.message,true);}});
 document.getElementById('reproPigletForm').addEventListener('submit',async e=>{e.preventDefault();const bw=document.getElementById('reproBirthWeight').value,cw=document.getElementById('reproCurrentWeight').value;try{await reproInsert('farm_piglets',{farrowing_id:document.getElementById('reproFarrowingSelect').value,piglet_code:document.getElementById('reproPigletCode').value.trim(),sex:document.getElementById('reproPigletSex').value||null,birth_weight_kg:bw===''?null:Number(bw),current_weight_kg:cw===''?null:Number(cw),status:'nursing'});e.target.reset();reproMsg('Porcelet enregistré.');await reproLoad();}catch(x){reproMsg('Enregistrement impossible : '+x.message,true);}});
+document.getElementById('reproGrowthPiglet').addEventListener('change',renderPigletGrowth);
 document.getElementById('reproWeightDate').value=today();
 document.getElementById('reproWeightForm').addEventListener('submit',async e=>{e.preventDefault();try{await reproInsert('farm_piglet_weights',{piglet_id:document.getElementById('reproWeightPiglet').value,weighing_date:document.getElementById('reproWeightDate').value,weight_kg:Number(document.getElementById('reproWeightKg').value),notes:document.getElementById('reproWeightNotes').value.trim()||null});e.target.reset();document.getElementById('reproWeightDate').value=today();reproMsg('Pesée enregistrée. Le poids actuel sera actualisé automatiquement.');await reproLoad();}catch(x){reproMsg('Enregistrement de la pesée impossible : '+x.message,true);}});
 
