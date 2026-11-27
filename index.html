@@ -562,7 +562,8 @@ function renderProfitability(){
  const remoteUnlinked=(data.expenses||[]).filter(x=>x._server&&!x.animalCode&&!x.farrowingId).length;
  notice.textContent='Charges générales non réparties : '+unlinkedExpenses+'. Ventes serveur en attente ou non validées exclues du chiffre d’affaires : '+pendingSales+'. Les dépenses Supabase rechargées sans association restent non affectées : '+remoteUnlinked+'. Les soins sans dépense vétérinaire liée ne sont pas convertis en coût.';
 }
-\nfunction render(){renderAnimals();renderStocks();renderSales();renderTaskAssignees();renderTasks();renderStaff();renderExpenses();renderHealth();renderPayments();renderProfitability();dashboard()}
+
+function render(){renderAnimals();renderStocks();renderSales();renderTaskAssignees();renderTasks();renderStaff();renderExpenses();renderHealth();renderPayments();renderProfitability();dashboard()}
 document.getElementById('dedupeAnimals').addEventListener('click',()=>{
  const list=Array.isArray(data.animals)?data.animals:[];
  const counts=new Map();
@@ -849,7 +850,8 @@ async function reproLoad(){
   growthSelect.value=p.some(x=>x.id===previousGrowth)?previousGrowth:(p[0]?p[0].id:'');
   renderPigletGrowth();
   document.getElementById('reproWeightRows').innerHTML=(w||[]).map(x=>{const pig=p.find(y=>y.id===x.piglet_id);return '<tr><td>'+esc(pig?pig.piglet_code:'—')+'</td><td>'+reproDate(x.weighing_date)+'</td><td>'+esc(x.weight_kg)+'</td><td>'+esc(x.notes||'—')+'</td></tr>'}).join('')||'<tr><td colspan="4">Aucune pesée enregistrée.</td></tr>';
-  reproMsg('Registres actualisés depuis Supabase. '+b.length+' saillie(s), '+g.length+' gestation(s), '+f.length+' mise(s) bas, '+p.length+' porcelet(s) et '+w.length+' pesée(s).');\n  renderProfitability();
+  reproMsg('Registres actualisés depuis Supabase. '+b.length+' saillie(s), '+g.length+' gestation(s), '+f.length+' mise(s) bas, '+p.length+' porcelet(s) et '+w.length+' pesée(s).');
+  renderProfitability();
  }catch(e){reproMsg('Chargement impossible : '+e.message,true);}
 }
 function renderReproHealthDashboard(){
