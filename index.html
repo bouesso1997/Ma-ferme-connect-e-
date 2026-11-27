@@ -661,7 +661,7 @@ const ROLE_PAGES={
  employee:['home','tasks']
 };
 function applyRoleAccess(role){
- const pages=ROLE_PAGES[role]||ROLE_PAGES.admin;
+ const pages=role?(ROLE_PAGES[role]||ROLE_PAGES.admin):['settings'];
  document.querySelectorAll('.finance-heading,.finance-metrics,.finance-note,.finance-detail,.metric-sales').forEach(el=>{el.hidden=role==='employee'});
  const recentSales=document.getElementById('dashRecentSales')?.closest('.dashboard-widget');if(recentSales)recentSales.hidden=role==='employee';
  document.querySelectorAll('#nav [data-page]').forEach(btn=>{const allowed=pages.includes(btn.dataset.page);btn.hidden=!allowed;btn.style.display=allowed?'':'none'});
@@ -678,6 +678,9 @@ function applyRoleAccess(role){
   document.querySelectorAll('#nav [data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===first));
  }
 }
+
+// Avant authentification, seule la page Paramètres (connexion) reste accessible.
+applyRoleAccess(null);
 
 function saveCloudConfig(){try{let c=cloudConfig();localStorage.setItem(CLOUD_CFG,JSON.stringify({url:c.url,farmId:c.farmId}));}catch(e){}}
 try{const c=JSON.parse(localStorage.getItem(CLOUD_CFG)||'{}');if(c.url)document.getElementById('sbUrl').value=c.url;if(c.farmId)document.getElementById('farmId').value=c.farmId;if(c.key){delete c.key;localStorage.setItem(CLOUD_CFG,JSON.stringify(c));}}catch(e){}
