@@ -595,6 +595,8 @@ const ROLE_PAGES={
 };
 function applyRoleAccess(role){
  const pages=ROLE_PAGES[role]||ROLE_PAGES.admin;
+ document.querySelectorAll('.finance-heading,.finance-metrics,.finance-note,.finance-detail,.metric-sales').forEach(el=>{el.hidden=role==='employee'});
+ const recentSales=document.getElementById('dashRecentSales')?.closest('.dashboard-widget');if(recentSales)recentSales.hidden=role==='employee';
  document.querySelectorAll('#nav [data-page]').forEach(btn=>{btn.hidden=!pages.includes(btn.dataset.page)});
  document.querySelectorAll('section.panel').forEach(panel=>{panel.dataset.roleHidden=pages.includes(panel.id)?'false':'true';if(!pages.includes(panel.id))panel.classList.remove('active')});
  if(role==='manager'){
