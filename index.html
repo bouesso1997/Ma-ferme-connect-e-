@@ -465,10 +465,10 @@ function renderStocks(){
  const summaryBody=document.getElementById('stockCostSummary');
  if(summaryBody){
   const groups=new Map();
-  (data.stockMovements||[]).filter(m=>m.movementType==='consumption'&&(m.animalCode||m.farrowingId)).forEach(m=>{
-   const key=m.animalCode?'animal:'+m.animalCode:'farrowing:'+m.farrowingId;
+  (data.stockMovements||[]).filter(m=>m.movementType==='consumption'&&(m.stockCategory||'feed')==='feed'&&(m.animalCode||m.farrowingId)).forEach(m=>{
+   const unit=m.unit||'kg';const key=(m.animalCode?'animal:'+m.animalCode:'farrowing:'+m.farrowingId)+'|'+unit;
    const label=m.animalCode?m.animalCode:'Portée '+String(m.farrowingId).slice(0,8);
-   const g=groups.get(key)||{label,qty:0,cost:0,known:true,unit:m.unit||'kg'};
+   const g=groups.get(key)||{label,qty:0,cost:0,known:true,unit};
    g.qty+=Number(m.qty||0);g.cost+=Number(m.costFCFA||0);if(m.costKnown===false)g.known=false;groups.set(key,g);
   });
   summaryBody.innerHTML=groups.size?[...groups.values()].sort((a,b)=>a.label.localeCompare(b.label,'fr')).map(g=>'<tr><td>'+esc(g.label)+'</td><td>'+g.qty.toLocaleString('fr-FR')+' '+esc(g.unit)+'</td><td>'+(g.known?g.cost.toLocaleString('fr-FR')+' FCFA':'À valoriser')+'</td></tr>').join(''):'<tr><td colspan="3" class="empty">Aucune consommation attribuée à un animal ou à une portée.</td></tr>';
@@ -680,7 +680,7 @@ async function stockLoad(){
  data.stocks=[...remote,...localOnly];
  const remoteMoves=(moves||[]).map(x=>{
   let meta={};try{if(String(x.note||'').startsWith('MFC:'))meta=JSON.parse(String(x.note).slice(4));}catch(_){}
-  return {id:x.id,date:meta.date||String(x.created_at||'').slice(0,10),stock:x.product_name,qty:Number(x.quantity),unit:x.unit||'unité',stockCategory:meta.stockCategory||'feed',note:meta.note||x.note||'',animalCode:meta.animalCode||'',farrowingId:meta.farrowingId||'',sowCode:meta.sowCode||'',supplier:meta.supplier||'',purchaseReference:meta.purchaseReference||'',purchaseUnitCostFCFA:Number(meta.purchaseUnitCostFCFA||0),costKnown:meta.costKnown!==false,unitCostFCFA:Number(meta.unitCostFCFA||0),costFCFA:Number(meta.costFCFA||0),movementType:x.movement_type,_server:true};
+  return {id:x.id,date:meta.date||String(x.created_at||'').slice(0,10),stock:x.product_name,qty:Number(x.quantity),unit:x.unit||'unité',stockCategory:meta.stockCategory||'feed',note:meta.note||x.note||'',animalCode:meta.animalCode||'',farrowingId:meta.farrowingId||'',sowCode:meta.sowCode||'',supplier:meta.supplier||'',purchaseReference:meta.purchaseReference||'',purchaseUnitCostFCFA:Number(meta.purchaseUnitCostFCFA||0),costKnown:meta.costKnown===true||(meta.costKnown===undefined&&(Number(meta.unitCostFCFA||0)>0||Number(meta.purchaseUnitCostFCFA||0)>0)),unitCostFCFA:Number(meta.unitCostFCFA||0),costFCFA:Number(meta.costFCFA||0),movementType:x.movement_type,_server:true};
  });
  const moveIds=new Set(remoteMoves.map(x=>String(x.id)));
  data.stockMovements=[...remoteMoves,...(data.stockMovements||[]).filter(x=>!x._server&&!moveIds.has(String(x.id||'')))];
