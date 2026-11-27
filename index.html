@@ -374,7 +374,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(data));return true}c
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function today(){return new Date().toISOString().slice(0,10)}
 ['aDate','saleDate','taskDate','expDate','useDate','paymentDate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today()});
-function go(id){if(cloudRole&&!(ROLE_PAGES[cloudRole]||[]).includes(id))return;document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}
+function go(id){const allowedPages=cloudRole?(ROLE_PAGES[cloudRole]||[]):['settings'];if(!allowedPages.includes(id))return;document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}
 document.getElementById('nav').addEventListener('click',e=>{let b=e.target.closest('button[data-page]');if(b)go(b.dataset.page)});
 document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
 function ration(type,w,n=10){
@@ -661,7 +661,7 @@ const ROLE_PAGES={
  employee:['home','tasks']
 };
 function applyRoleAccess(role){
- const pages=role?(ROLE_PAGES[role]||ROLE_PAGES.admin):['settings'];
+ const pages=role?(ROLE_PAGES[role]||[]):['settings'];
  document.querySelectorAll('.finance-heading,.finance-metrics,.finance-note,.finance-detail,.metric-sales').forEach(el=>{el.hidden=role==='employee'});
  const recentSales=document.getElementById('dashRecentSales')?.closest('.dashboard-widget');if(recentSales)recentSales.hidden=role==='employee';
  document.querySelectorAll('#nav [data-page]').forEach(btn=>{const allowed=pages.includes(btn.dataset.page);btn.hidden=!allowed;btn.style.display=allowed?'':'none'});
