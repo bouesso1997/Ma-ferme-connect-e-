@@ -535,7 +535,7 @@ function renderProfitability(){
  (data.stockMovements||[]).filter(m=>m.movementType==='consumption'&&(m.stockCategory||'feed')==='feed'&&(m.animalCode||m.farrowingId)).forEach(m=>{
   const key=keyFor(m.animalCode,m.farrowingId);if(!key)return;
   const g=ensure(key,m.animalCode||('Portée '+String(m.farrowingId).slice(0,8)));
-  g.feedSeen=true;if(m.costKnown===false)g.feedKnown=false;else{if(g.feed===0&&!g.feedKnown)g.feedKnown=true;g.feed+=Number(m.costFCFA||0);}
+  if(m.costKnown===false)g.feedKnown=false;else{if(!g.feedSeen)g.feedKnown=true;g.feed+=Number(m.costFCFA||0);}g.feedSeen=true;
  });
  (data.expenses||[]).forEach(x=>{
   const key=keyFor(x.animalCode,x.farrowingId);if(!key)return;
