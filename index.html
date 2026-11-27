@@ -464,7 +464,7 @@ function renderV21Widgets(){
 function renderMonthlyProfitability(){
  const body=document.getElementById('monthlyProfitRows');if(!body)return;
  const months=new Map();
- const ensure=key=>{if(!/^\\d{4}-\\d{2}$/.test(key))return null;if(!months.has(key))months.set(key,{revenue:0,feedPurchases:0,otherExpenses:0,feedConsumed:0});return months.get(key)};
+ const ensure=key=>{if(!/^\d{4}-\d{2}$/.test(key))return null;if(!months.has(key))months.set(key,{revenue:0,feedPurchases:0,otherExpenses:0,feedConsumed:0});return months.get(key)};
  (data.sales||[]).forEach(x=>{const m=ensure(String(x.date||'').slice(0,7));if(m)m.revenue+=Number(x.amount||0)});
  (data.expenses||[]).forEach(x=>{const m=ensure(String(x.date||'').slice(0,7));if(!m)return;if(x.category==='feed_purchase')m.feedPurchases+=Number(x.amount||0);else m.otherExpenses+=Number(x.amount||0)});
  (data.stockMovements||[]).forEach(x=>{if(x.stockCategory!=='feed')return;const m=ensure(String(x.date||'').slice(0,7));if(m)m.feedConsumed+=Number(x.costFCFA||0)});
