@@ -530,12 +530,12 @@ document.getElementById('paymentForm').addEventListener('submit',async e=>{e.pre
 function renderProfitability(){
  const body=document.getElementById('profitabilityRows'),notice=document.getElementById('profitabilityNotice');if(!body||!notice)return;
  const groups=new Map();
- const ensure=(key,label)=>{if(!groups.has(key))groups.set(key,{label,revenue:0,feed:0,expenses:0,health:0,feedKnown:true,expenseKnown:true,revenueCount:0});return groups.get(key)};
+ const ensure=(key,label)=>{if(!groups.has(key))groups.set(key,{label,revenue:0,feed:0,expenses:0,health:0,feedKnown:false,feedSeen:false,expenseKnown:true,revenueCount:0});return groups.get(key)};
  const keyFor=(animal,farrowing)=>animal?('animal:'+animal):farrowing?('farrowing:'+farrowing):'';
  (data.stockMovements||[]).filter(m=>m.movementType==='consumption'&&(m.stockCategory||'feed')==='feed'&&(m.animalCode||m.farrowingId)).forEach(m=>{
   const key=keyFor(m.animalCode,m.farrowingId);if(!key)return;
   const g=ensure(key,m.animalCode||('Portée '+String(m.farrowingId).slice(0,8)));
-  if(m.costKnown===false)g.feedKnown=false;else g.feed+=Number(m.costFCFA||0);
+  g.feedSeen=true;if(m.costKnown===false)g.feedKnown=false;else{if(g.feed===0&&!g.feedKnown)g.feedKnown=true;g.feed+=Number(m.costFCFA||0);}
  });
  (data.expenses||[]).forEach(x=>{
   const key=keyFor(x.animalCode,x.farrowingId);if(!key)return;
@@ -545,20 +545,20 @@ function renderProfitability(){
  (data.sales||[]).forEach(x=>{
   const code=String(x.animal||'').trim();if(!code)return;
   const g=ensure('animal:'+code,code);
-  if(x._server&&x.serverStatus!=='approved')return;
-  if(!x._server&&x.serverStatus)return;
+  if(!x._server||x.serverStatus!=='approved')return;
+  
   g.revenue+=Number(x.amount||0);g.revenueCount++;
  });
  const healthRows=Array.isArray(reproState.health)?reproState.health:[];
- healthRows.forEach(h=>{const code=String(h.animal_code||'').trim();if(code&&groups.has('animal:'+code))groups.get('animal:'+code).health++});
+ healthRows.forEach(h=>{const code=String(h.animal_code||'').trim();if(code)ensure('animal:'+code,code).health++});
  const rows=[...groups.values()].sort((a,b)=>a.label.localeCompare(b.label,'fr'));
  body.innerHTML=rows.length?rows.map(g=>{
   const margin=g.revenue-g.feed-g.expenses;
   const fmt=n=>Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';
-  return '<tr><td>'+esc(g.label)+'</td><td>'+fmt(g.revenue)+'</td><td>'+(g.feedKnown?fmt(g.feed):'À valoriser')+'</td><td>'+fmt(g.expenses)+'</td><td>'+g.health+'</td><td>'+(g.feedKnown?fmt(margin):'Non calculable')+'</td></tr>';
+  const healthValue=cloudRole==='admin'&&cloudSession?String(g.health):'Non chargé';const feedValue=g.feedSeen?(g.feedKnown?fmt(g.feed):'À valoriser'):'Non saisi';const marginValue=g.feedSeen&&g.feedKnown?fmt(margin):'Données insuffisantes';return '<tr><td>'+esc(g.label)+'</td><td>'+fmt(g.revenue)+'</td><td>'+feedValue+'</td><td>'+fmt(g.expenses)+'</td><td>'+healthValue+'</td><td>'+marginValue+'</td></tr>';
  }).join(''):'<tr><td colspan="6" class="empty">Aucune opération attribuée pour le moment.</td></tr>';
  const unlinkedExpenses=(data.expenses||[]).filter(x=>!x.animalCode&&!x.farrowingId).length;
- const pendingSales=(data.sales||[]).filter(x=>x._server&&x.serverStatus!=='approved').length;
+ const pendingSales=(data.sales||[]).filter(x=>!x._server||x.serverStatus!=='approved').length;
  const remoteUnlinked=(data.expenses||[]).filter(x=>x._server&&!x.animalCode&&!x.farrowingId).length;
  notice.textContent='Charges générales non réparties : '+unlinkedExpenses+'. Ventes serveur en attente ou non validées exclues du chiffre d’affaires : '+pendingSales+'. Les dépenses Supabase rechargées sans association restent non affectées : '+remoteUnlinked+'. Les soins sans dépense vétérinaire liée ne sont pas convertis en coût.';
 }
