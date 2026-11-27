@@ -372,7 +372,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(data));return true}c
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function today(){return new Date().toISOString().slice(0,10)}
 ['aDate','saleDate','taskDate','expDate','useDate','paymentDate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today()});
-function go(id){document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}
+function go(id){if(cloudRole&&!(ROLE_PAGES[cloudRole]||[]).includes(id))return;document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}
 document.getElementById('nav').addEventListener('click',e=>{let b=e.target.closest('button[data-page]');if(b)go(b.dataset.page)});
 document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
 function ration(type,w,n=10){
@@ -587,14 +587,14 @@ document.getElementById('importBtn').addEventListener('click',()=>{let f=documen
 // Connexion Supabase : aucune clé secrète n'est utilisée ici.
 function cloudConfig(){return {url:(document.getElementById('sbUrl').value||'').trim().replace(/\/$/,''),key:(document.getElementById('sbKey').value||'').trim(),farmId:(document.getElementById('farmId').value||'').trim()}}
 function cloudStatus(msg){document.getElementById('cloudStatus').textContent=msg}
+const ROLE_PAGES={
+ admin:['home','animals','health','feed','stock','sales','payments','expenses','cameras','automation','tasks','staff','reproduction','settings'],
+ manager:['home','animals','health','feed','stock','sales','payments','expenses','tasks'],
+ secretariat:['home','sales','payments','expenses','tasks'],
+ employee:['home','tasks']
+};
 function applyRoleAccess(role){
- const allowed={
-  admin:['home','animals','health','feed','stock','sales','payments','expenses','cameras','automation','tasks','staff','reproduction','settings'],
-  manager:['home','animals','health','feed','stock','sales','payments','expenses','tasks'],
-  secretariat:['home','sales','payments','expenses','tasks'],
-  employee:['home','tasks']
- };
- const pages=allowed[role]||allowed.admin;
+ const pages=ROLE_PAGES[role]||ROLE_PAGES.admin;
  document.querySelectorAll('#nav [data-page]').forEach(btn=>{btn.hidden=!pages.includes(btn.dataset.page)});
  document.querySelectorAll('section.panel').forEach(panel=>{panel.dataset.roleHidden=pages.includes(panel.id)?'false':'true';if(!pages.includes(panel.id))panel.classList.remove('active')});
  if(role==='manager'){
