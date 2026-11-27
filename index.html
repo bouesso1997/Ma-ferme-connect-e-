@@ -365,7 +365,7 @@ function loadData(){try{return {...blank,...JSON.parse(localStorage.getItem(KEY)
 function save(){try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){return false}}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function today(){return new Date().toISOString().slice(0,10)}
-['aDate','saleDate','taskDate','expDate'].forEach(id=>document.getElementById(id).value=today());
+['aDate','saleDate','taskDate','expDate','useDate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today()});
 function go(id){document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));window.scrollTo({top:0,behavior:'smooth'})}
 document.getElementById('nav').addEventListener('click',e=>{let b=e.target.closest('button[data-page]');if(b)go(b.dataset.page)});
 document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
