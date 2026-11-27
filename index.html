@@ -475,7 +475,7 @@ function renderMonthlyProfitability(){
  (data.payments||[]).forEach(x=>{const m=ensure(String(x.date||'').slice(0,7));if(!m)return;if(x.kind==='client')m.clientCollected+=Number(x.amount||0);if(x.kind==='supplier')m.supplierPaid+=Number(x.amount||0)});
  const fmt=n=>Number(n||0).toLocaleString('fr-FR',{maximumFractionDigits:0})+' FCFA';
  const rows=[...months.entries()].sort((a,b)=>b[0].localeCompare(a[0]));
- if(!rows.length){body.innerHTML='<tr><td colspan="7" class="empty">Aucune opération datée à comparer.</td></tr>';return}
+ if(!rows.length){body.innerHTML='<tr><td colspan="9" class="empty">Aucune opération datée à comparer.</td></tr>';return}
  body.innerHTML=rows.map(([key,m])=>{const cash=m.clientCollected-m.supplierPaid,analytical=m.revenue-m.otherExpenses-m.feedConsumed;const label=new Date(key+'-01T00:00:00').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});return '<tr><td><b>'+esc(label)+'</b></td><td>'+fmt(m.revenue)+'</td><td>'+fmt(m.clientCollected)+'</td><td>'+fmt(m.feedPurchases)+'</td><td>'+fmt(m.otherExpenses)+'</td><td>'+fmt(m.supplierPaid)+'</td><td>'+fmt(m.feedConsumed)+'</td><td><b>'+fmt(cash)+'</b></td><td><b>'+fmt(analytical)+'</b></td></tr>'}).join('');
  const note=document.getElementById('monthlyProfitNote');if(note)note.textContent=rows.length+' mois avec au moins une opération. Solde de trésorerie = encaissements clients − règlements fournisseurs. Résultat analytique = ventes − autres charges − aliments consommés ; les achats d’aliments ne sont pas redéduits. Les résultats restent estimatifs et incomplets si des opérations manquent.';
 }
