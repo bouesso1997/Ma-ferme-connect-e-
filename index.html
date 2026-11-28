@@ -542,7 +542,7 @@ async function proofList(paymentId){
 async function proofSignedUrl(path){
  const result=await proofStorageRequest('/storage/v1/object/sign/farm-private-proofs/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:300})});
  const signed=result?.signedURL||result?.signedUrl;if(!signed)throw new Error('Supabase n’a pas retourné de lien temporaire.');
- return signed.startsWith('http')?signed:cloudConfig().url+(signed.startsWith('/')?signed:'/'+signed);
+ return signed.startsWith('http')?signed:cloudConfig().url+(signed.startsWith('/storage/v1/')?signed:('/storage/v1'+(signed.startsWith('/')?signed:'/'+signed)));
 }
 async function proofUpload(paymentId,file){
  if(cloudRole!=='admin')throw new Error('Seul l’administrateur peut déposer un justificatif.');
@@ -559,7 +559,7 @@ async function proofUpload(paymentId,file){
 }
 document.getElementById('paymentRows').addEventListener('click',async e=>{
  const view=e.target.closest('[data-proof-view]'),upload=e.target.closest('[data-proof-upload]');
- if(view){const id=view.dataset.proofView;view.disabled=true;const original=view.textContent;view.textContent='Recherche…';try{const files=await proofList(id);const file=(files||[]).filter(x=>x.name&&!x.id?.endsWith('/')).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];if(!file)throw new Error('Aucun justificatif déposé pour ce règlement.');const path=proofPrefix(id)+'/'+file.name;const url=await proofSignedUrl(path);window.open(url,'_blank','noopener');}catch(err){const status=document.getElementById('paymentStatus');status.textContent='Consultation du justificatif impossible : '+err.message;}finally{view.disabled=false;view.textContent=original;}return;}
+ if(view){const id=view.dataset.proofView;const popup=window.open('about:blank','_blank');view.disabled=true;const original=view.textContent;view.textContent='Recherche…';try{const files=await proofList(id);const file=(files||[]).filter(x=>x.name&&!x.id?.endsWith('/')).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];if(!file)throw new Error('Aucun justificatif déposé pour ce règlement.');const path=proofPrefix(id)+'/'+file.name;const url=await proofSignedUrl(path);if(popup)popup.location=url;else throw new Error('Le navigateur a bloqué la fenêtre du justificatif. Autorisez les fenêtres contextuelles puis réessayez.');}catch(err){if(popup)popup.close();const status=document.getElementById('paymentStatus');status.textContent='Consultation du justificatif impossible : '+err.message;}finally{view.disabled=false;view.textContent=original;}return;}
  if(upload){if(cloudRole!=='admin')return;const input=upload.parentElement.querySelector('[data-proof-file="'+CSS.escape(upload.dataset.proofUpload)+'"]');input?.click();}
 });
 document.getElementById('paymentRows').addEventListener('change',async e=>{
