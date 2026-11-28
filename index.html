@@ -679,6 +679,9 @@ function applyRoleAccess(role){
  }
 }
 
+// Verrouillage initial : aucune rubrique métier avant authentification.
+applyRoleAccess(null);
+
 function saveCloudConfig(){try{let c=cloudConfig();localStorage.setItem(CLOUD_CFG,JSON.stringify({url:c.url,farmId:c.farmId}));}catch(e){}}
 try{const c=JSON.parse(localStorage.getItem(CLOUD_CFG)||'{}');if(c.url)document.getElementById('sbUrl').value=c.url;if(c.farmId)document.getElementById('farmId').value=c.farmId;if(c.key){delete c.key;localStorage.setItem(CLOUD_CFG,JSON.stringify(c));}}catch(e){}
 async function sbFetch(path,opts={}){if(!cloudSession)throw new Error('Connectez-vous d’abord.');const c=cloudConfig();const headers={apikey:c.key,Authorization:'Bearer '+cloudSession.access_token,'Content-Type':'application/json',...(opts.headers||{})};const r=await fetch(c.url+path,{...opts,headers});const txt=await r.text();let body;try{body=txt?JSON.parse(txt):null}catch(e){body=txt}if(!r.ok)throw new Error((body&&body.message)||('Erreur HTTP '+r.status+': '+(typeof body==='string'?body:JSON.stringify(body))));return body}
