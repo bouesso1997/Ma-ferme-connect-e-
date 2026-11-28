@@ -875,7 +875,7 @@ function renderReproHealthDashboard(){
  const box=document.getElementById('dashReproHealth');if(!box)return;
  if(!cloudSession){box.innerHTML='<p class="empty">Connectez-vous à Supabase pour afficher les rappels enregistrés sur le serveur.</p>';return;}
  const knownCodes=new Set([...reproState.animals.map(x=>x.animal_code),...reproState.piglets.map(x=>x.piglet_code)]);
- const todayKey=new Date().toISOString().slice(0,10),limitKey=new Date(Date.now()+14*86400000).toISOString().slice(0,10);
+ const todayKey=today(),limitKey=dateKey(14);
  const due=reproState.health.filter(x=>knownCodes.has(x.animal_code)&&x.next_due_date&&x.next_due_date<=limitKey).sort((a,b)=>a.next_due_date.localeCompare(b.next_due_date));
  box.innerHTML=due.length?due.slice(0,6).map(x=>'<div class="dash-row"><div class="dash-row-main"><div class="dash-row-title">'+esc(x.animal_code)+' · '+esc(x.event_type||'Suivi sanitaire')+'</div><div class="dash-row-sub">'+(x.next_due_date<todayKey?'En retard':'À venir')+' · '+reproDate(x.next_due_date)+'</div></div><span class="dash-badge">'+(x.next_due_date<todayKey?'En retard':'Rappel')+'</span></div>').join(''):'<p class="empty">Aucun rappel sanitaire en retard ou prévu dans les 14 prochains jours.</p>';
 }
