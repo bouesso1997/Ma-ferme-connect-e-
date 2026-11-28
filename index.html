@@ -524,7 +524,7 @@ function renderPayments(){
  document.getElementById('clientReceivables').textContent=fmt(receivables);document.getElementById('supplierPayables').textContent=fmt(payables);
  document.getElementById('clientPaymentsTotal').textContent=fmt(payments.filter(x=>x.kind==='client').reduce((n,x)=>n+Number(x.amount||0),0));
  document.getElementById('supplierPaymentsTotal').textContent=fmt(payments.filter(x=>x.kind==='supplier').reduce((n,x)=>n+Number(x.amount||0),0));
- body.innerHTML=payments.length?payments.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(p=>{const record=(p.kind==='client'?data.sales:data.expenses).find(x=>x.id===p.recordId);const label=record?(p.kind==='client'?(record.customer||record.animal):((record.supplier||'Fournisseur')+' · '+record.label)):'Opération supprimée';const proofControls=p._server?'<button type="button" class="secondary" data-proof-view="'+esc(p.id)+'">Consulter</button>'+(cloudRole==='admin'?'<button type="button" class="secondary" data-proof-upload="'+esc(p.id)+'">Ajouter</button><input type="file" accept="application/pdf,image/jpeg,image/png" data-proof-file="'+esc(p.id)+'" hidden>':''):'<span class="small">Disponible après synchronisation</span>';return '<tr><td>'+esc(p.date||'—')+'</td><td>'+(p.kind==='client'?'Encaissement client':'Paiement fournisseur')+'</td><td>'+esc(label)+'</td><td>'+esc(p.method||'—')+'</td><td>'+esc(p.reference||'—')+'</td><td>'+fmt(p.amount)+'</td><td>'+proofControls+'</td></tr>'}).join(''):'<tr><td colspan="7" class="empty">Aucun règlement enregistré.</td></tr>';
+ body.innerHTML=payments.length?payments.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(p=>{const record=(p.kind==='client'?data.sales:data.expenses).find(x=>x.id===p.recordId);const label=record?(p.kind==='client'?(record.customer||record.animal):((record.supplier||'Fournisseur')+' · '+record.label)):'Opération supprimée';const proofControls=p._server?'<button type="button" class="secondary" data-proof-view="'+esc(p.id)+'">Consulter</button>'+(cloudRole==='admin'?'<button type="button" class="secondary" data-proof-upload="'+esc(p.id)+'">Ajouter</button><button type="button" class="danger" data-proof-delete="'+esc(p.id)+'">Supprimer</button><input type="file" accept="application/pdf,image/jpeg,image/png" data-proof-file="'+esc(p.id)+'" hidden>':''):'<span class="small">Disponible après synchronisation</span>';return '<tr><td>'+esc(p.date||'—')+'</td><td>'+(p.kind==='client'?'Encaissement client':'Paiement fournisseur')+'</td><td>'+esc(label)+'</td><td>'+esc(p.method||'—')+'</td><td>'+esc(p.reference||'—')+'</td><td>'+fmt(p.amount)+'</td><td>'+proofControls+'</td></tr>'}).join(''):'<tr><td colspan="7" class="empty">Aucun règlement enregistré.</td></tr>';
 }
 
 async function proofStorageRequest(path,options={}){
@@ -544,6 +544,14 @@ async function proofSignedUrl(path){
  const signed=result?.signedURL||result?.signedUrl;if(!signed)throw new Error('Supabase n’a pas retourné de lien temporaire.');
  return signed.startsWith('http')?signed:cloudConfig().url+(signed.startsWith('/storage/v1/')?signed:('/storage/v1'+(signed.startsWith('/')?signed:'/'+signed)));
 }
+async function proofDelete(paymentId){
+ if(cloudRole!=='admin')throw new Error('Seul l’administrateur peut supprimer un justificatif.');
+ const files=await proofList(paymentId);
+ const file=(files||[]).filter(x=>x.name&&!x.id?.endsWith('/')).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];
+ if(!file)throw new Error('Aucun justificatif à supprimer pour ce règlement.');
+ const path=proofPrefix(paymentId)+'/'+file.name;
+ await proofStorageRequest('/storage/v1/object/farm-private-proofs/'+path.split('/').map(encodeURIComponent).join('/'),{method:'DELETE'});
+}
 async function proofUpload(paymentId,file){
  if(cloudRole!=='admin')throw new Error('Seul l’administrateur peut déposer un justificatif.');
  if(!file)throw new Error('Choisissez un fichier.');
@@ -558,7 +566,8 @@ async function proofUpload(paymentId,file){
  return path;
 }
 document.getElementById('paymentRows').addEventListener('click',async e=>{
- const view=e.target.closest('[data-proof-view]'),upload=e.target.closest('[data-proof-upload]');
+ const view=e.target.closest('[data-proof-view]'),upload=e.target.closest('[data-proof-upload]'),remove=e.target.closest('[data-proof-delete]');
+ if(remove){if(cloudRole!=='admin')return;if(!window.confirm('Supprimer définitivement le justificatif le plus récent de ce règlement ?'))return;remove.disabled=true;const original=remove.textContent;remove.textContent='Suppression…';const status=document.getElementById('paymentStatus');try{await proofDelete(remove.dataset.proofDelete);status.textContent='Justificatif supprimé du stockage privé.';}catch(err){status.textContent='Suppression impossible : '+err.message;}finally{remove.disabled=false;remove.textContent=original;}return;}
  if(view){const id=view.dataset.proofView;const popup=window.open('about:blank','_blank');view.disabled=true;const original=view.textContent;view.textContent='Recherche…';try{const files=await proofList(id);const file=(files||[]).filter(x=>x.name&&!x.id?.endsWith('/')).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];if(!file)throw new Error('Aucun justificatif déposé pour ce règlement.');const path=proofPrefix(id)+'/'+file.name;const url=await proofSignedUrl(path);if(popup)popup.location=url;else throw new Error('Le navigateur a bloqué la fenêtre du justificatif. Autorisez les fenêtres contextuelles puis réessayez.');}catch(err){if(popup)popup.close();const status=document.getElementById('paymentStatus');status.textContent='Consultation du justificatif impossible : '+err.message;}finally{view.disabled=false;view.textContent=original;}return;}
  if(upload){if(cloudRole!=='admin')return;const input=upload.parentElement.querySelector('[data-proof-file="'+CSS.escape(upload.dataset.proofUpload)+'"]');input?.click();}
 });
