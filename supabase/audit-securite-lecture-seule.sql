@@ -94,3 +94,31 @@ JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
   AND p.proname IN ('has_farm_role', 'is_farm_admin', 'is_farm_member')
 ORDER BY p.proname;
+
+
+-- 7) Propriétaire et droits EXECUTE des fonctions de sécurité
+SELECT
+  p.proname AS function_name,
+  pg_get_userbyid(p.proowner) AS function_owner,
+  p.prosecdef AS security_definer,
+  p.proconfig AS function_settings,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute,
+  has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_can_execute
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN ('has_farm_role', 'is_farm_admin', 'is_farm_member')
+ORDER BY p.proname;
+
+-- 8) Privilèges SQL directs sur les tables financières
+SELECT
+  grantee,
+  table_name,
+  privilege_type,
+  is_grantable
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND table_name IN ('farm_sales', 'farm_expenses', 'farm_payments')
+  AND grantee IN ('anon', 'authenticated', 'service_role')
+ORDER BY table_name, grantee, privilege_type;
