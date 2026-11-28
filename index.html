@@ -642,6 +642,7 @@ document.getElementById('exportPdf').addEventListener('click',()=>{
  reportTable('Stocks',['Produit','Catégorie','Quantité','Unité','Seuil d’alerte','Prix'],data.stocks.map(x=>[x.name,x.category,x.qty,x.unit,x.min,x.price])),
  reportTable('Mouvements de stock',['Date','Produit','Quantité','Unité','Note'],(data.stockMovements||[]).map(x=>[x.date,x.stock,x.qty,x.unit,x.note])),
  reportTable('Ventes non annulées',['Date','Animal / lot','Poids (kg)','Montant'],validSales.map(x=>[x.date,x.animal,x.weight,money(x.amount)])),
+ reportTable('Règlements enregistrés',['Date','Type','Opération concernée','Mode','Référence','Montant'],(data.payments||[]).map(p=>{const record=(p.kind==='client'?data.sales:data.expenses).find(x=>x.id===p.recordId);const label=record?(p.kind==='client'?(record.customer||record.animal||'Client'):(record.supplier||'Fournisseur')+' · '+(record.label||'')):'Opération non retrouvée';return [p.date,p.kind==='client'?'Encaissement client':'Paiement fournisseur',label,p.method,p.reference,money(p.amount)]})),
  reportTable('Dépenses',['Date','Libellé','Montant'],data.expenses.map(x=>[x.date,x.label,money(x.amount)])),
  reportTable('Tâches',['Date','Tâche','Responsable','Priorité','Statut'],data.tasks.map(x=>[x.date,x.title,x.who,x.priority,x.done?'Terminée':(x.date&&x.date<today()?'En retard':'À faire')])),
  reportTable('Équipe',['Nom','Identifiant','Rôle','Téléphone','Statut'],(data.employees||[]).map(x=>[x.name,x.username,x.role,x.phone,x.status]))
